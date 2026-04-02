@@ -1,3 +1,3 @@
 export const connectLinkedIn = () => {
-  window.location.href = "http://localhost:5000/api/linkedin/connect";
+  window.location.href = "https://schedular-dbnc.onrender.com/api/linkedin/connect";
 };
