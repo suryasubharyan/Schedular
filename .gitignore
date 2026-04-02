@@ -1,0 +1,38 @@
+# 🔐 ENV files (MOST IMPORTANT)
+.env
+.env.local
+.env.development
+.env.production
+
+# 📦 node modules
+node_modules/
+
+# 🧾 logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# 🗂 build folders
+dist/
+build/
+
+# 🧠 OS files
+.DS_Store
+Thumbs.db
+
+# 🧪 testing
+coverage/
+
+# ⚙️ editor files
+.vscode/
+.idea/
+
+# 🔑 secrets / keys
+*.pem
+*.key
+
+# 🚀 misc
+.cache/
+.tmp/
