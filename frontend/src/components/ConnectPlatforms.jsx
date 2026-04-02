@@ -18,7 +18,7 @@ export default function ConnectPlatforms() {
 
         {/* LINKEDIN */}
         <a
-          href="http://localhost:5000/api/linkedin/connect"
+          href="https://schedular-dbnc.onrender.com/api/linkedin/connect"
           style={styles.card}
         >
           <LinkedInIcon />
