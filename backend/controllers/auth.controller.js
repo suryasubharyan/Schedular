@@ -42,8 +42,8 @@ export const register = async (req, res) => {
     // 🔥 SET COOKIE
     res.cookie("token", token, {
       httpOnly: true,
-      secure: false, // production me true
-      sameSite: "lax",
+      secure: true, // production me true
+      sameSite: "none",
     });
 
     res.status(201).json({
@@ -91,8 +91,8 @@ export const login = async (req, res) => {
     // 🔥 SET COOKIE
     res.cookie("token", token, {
       httpOnly: true,
-      secure: false,
-      sameSite: "lax",
+      secure: true,
+      sameSite: "none",
     });
 
     res.json({
