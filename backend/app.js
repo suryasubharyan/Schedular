@@ -1,20 +1,65 @@
 import express from "express";
 import cors from "cors";
+import cookieParser from "cookie-parser";
+import config from "./config/env.js";
 
+// Routes
 import authRoutes from "./routes/auth.routes.js";
 import linkedinRoutes from "./routes/linkedin.routes.js";
 import postRoutes from "./routes/post.routes.js";
 
 const app = express();
-app.use(cors({ origin: "https://schedular-roan.vercel.app", credentials: true }));
 
+/**
+ * 🌐 CORS CONFIG (VERY IMPORTANT for cookies + OAuth)
+ */
+app.use(
+  cors({
+    origin: config.frontendUrl, // e.g. http://localhost:3000
+    credentials: true, // 🔥 allow cookies
+    methods: ["GET", "POST", "PUT", "DELETE"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+  })
+);
+
+/**
+ * 🍪 Middleware
+ */
+app.use(cookieParser());
 app.use(express.json());
 
-// 🔐 Auth routes
-app.use("/api/auth", authRoutes);
+/**
+ * 🧪 Health Check Route
+ */
+app.get("/", (req, res) => {
+  res.send("🚀 API is running...");
+});
 
-// 🔗 LinkedIn & Posts routes
+/**
+ * 🔐 Routes
+ */
+app.use("/api/auth", authRoutes);
 app.use("/api/linkedin", linkedinRoutes);
 app.use("/api/posts", postRoutes);
+
+/**
+ * ❌ 404 Handler
+ */
+app.use((req, res) => {
+  res.status(404).json({
+    error: "Route not found",
+  });
+});
+
+/**
+ * 💥 Global Error Handler
+ */
+app.use((err, req, res, next) => {
+  console.error("Server Error:", err);
+
+  res.status(err.status || 500).json({
+    error: err.message || "Internal Server Error",
+  });
+});
 
 export default app;

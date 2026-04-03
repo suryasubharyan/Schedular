@@ -6,8 +6,8 @@ export const register = (data) =>
 export const login = (data) =>
   axios.post("/api/auth/login", data);
 
-export const googleLogin = (data) =>
-  axios.post("/api/auth/google-login", { data });
+export const googleLogin = (googleToken) =>
+  axios.post("/api/auth/google-login", { googleToken });
 
 export const verifyToken = () =>
   axios.get("/api/auth/verify");

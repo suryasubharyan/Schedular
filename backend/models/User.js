@@ -2,19 +2,11 @@ import mongoose from "mongoose";
 
 const userSchema = new mongoose.Schema(
   {
-    // 📧 Local Auth
     email: { type: String, required: true, unique: true },
-    password: { type: String }, // Only for local auth
+    password: { type: String },
 
-    // 🔵 Google Auth
     googleId: { type: String },
-    profilePicture: { type: String },
 
-    // 🔗 LinkedIn
-    linkedinId: { type: String },
-    accessToken: { type: String },
-
-    // 👤 Profile
     name: { type: String },
     headline: { type: String },
     profilePicture: { type: String },
@@ -24,7 +16,6 @@ const userSchema = new mongoose.Schema(
       default: "local",
     },
 
-    // 📅 Tracking
     lastLogin: { type: Date },
   },
   { timestamps: true }

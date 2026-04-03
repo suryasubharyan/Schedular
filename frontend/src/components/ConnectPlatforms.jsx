@@ -5,6 +5,13 @@ import {
   TwitterIcon,
 } from "./Icons";
 
+const ENV = import.meta.env.VITE_ENV;
+
+const BASE_URL =
+  ENV === "local"
+    ? import.meta.env.VITE_API_URL_LOCAL
+    : import.meta.env.VITE_API_URL_PROD;
+
 export default function ConnectPlatforms() {
   return (
     <div style={styles.container}>
@@ -18,7 +25,7 @@ export default function ConnectPlatforms() {
 
         {/* LINKEDIN */}
         <a
-          href="https://schedular-dbnc.onrender.com/api/linkedin/connect"
+          href={`${BASE_URL}/api/linkedin/connect`}
           style={styles.card}
         >
           <LinkedInIcon />

@@ -10,28 +10,23 @@ const JWT_SECRET = new TextEncoder().encode(
 const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
 /**
- * 📝 Register - Create new user with email/password
+ * 📝 Register
  */
 export const register = async (req, res) => {
   try {
     const { email, password, name } = req.body;
 
     if (!email || !password) {
-      return res
-        .status(400)
-        .json({ error: "Email and password are required" });
+      return res.status(400).json({ error: "Email and password are required" });
     }
 
-    // Check if user exists
     const existingUser = await User.findOne({ email });
     if (existingUser) {
       return res.status(400).json({ error: "User already exists" });
     }
 
-    // Hash password
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // Create user
     const user = await User.create({
       email,
       password: hashedPassword,
@@ -39,11 +34,17 @@ export const register = async (req, res) => {
       authProvider: "local",
     });
 
-    // Generate JWT
-    const token = await new SignJWT({ userId: user._id, email: user.email })
+    const token = await new SignJWT({ userId: user._id.toString(), email: user.email })
       .setProtectedHeader({ alg: "HS256" })
       .setExpirationTime("7d")
       .sign(JWT_SECRET);
+
+    // 🔥 SET COOKIE
+    res.cookie("token", token, {
+      httpOnly: true,
+      secure: false, // production me true
+      sameSite: "lax",
+    });
 
     res.status(201).json({
       success: true,
@@ -62,35 +63,37 @@ export const register = async (req, res) => {
 };
 
 /**
- * 🔐 Login - Authenticate with email/password
+ * 🔐 Login
  */
 export const login = async (req, res) => {
   try {
     const { email, password } = req.body;
 
     if (!email || !password) {
-      return res
-        .status(400)
-        .json({ error: "Email and password are required" });
+      return res.status(400).json({ error: "Email and password are required" });
     }
 
-    // Find user
     const user = await User.findOne({ email, authProvider: "local" });
     if (!user) {
       return res.status(401).json({ error: "Invalid email or password" });
     }
 
-    // Verify password
     const isPasswordValid = await bcrypt.compare(password, user.password);
     if (!isPasswordValid) {
       return res.status(401).json({ error: "Invalid email or password" });
     }
 
-    // Generate JWT
-    const token = await new SignJWT({ userId: user._id, email: user.email })
+    const token = await new SignJWT({ userId: user._id.toString(), email: user.email })
       .setProtectedHeader({ alg: "HS256" })
       .setExpirationTime("7d")
       .sign(JWT_SECRET);
+
+    // 🔥 SET COOKIE
+    res.cookie("token", token, {
+      httpOnly: true,
+      secure: false,
+      sameSite: "lax",
+    });
 
     res.json({
       success: true,
@@ -109,7 +112,7 @@ export const login = async (req, res) => {
 };
 
 /**
- * 🔵 Google Login - Authenticate with Google OAuth token
+ * 🔵 Google Login
  */
 export const googleLogin = async (req, res) => {
   try {
@@ -119,46 +122,45 @@ export const googleLogin = async (req, res) => {
       return res.status(400).json({ error: "Google token is required" });
     }
 
-    // Verify Google token
     const ticket = await googleClient.verifyIdToken({
       idToken: googleToken,
       audience: process.env.GOOGLE_CLIENT_ID,
     });
 
     const payload = ticket.getPayload();
-    const googleId = payload.sub;
-    const email = payload.email;
-    const name = payload.name;
 
-    // Find or create user
     let user = await User.findOne({
-      $or: [{ googleId }, { email }],
+      $or: [{ googleId: payload.sub }, { email: payload.email }],
     });
 
     if (!user) {
-      // Create new user from Google info
       user = await User.create({
-        googleId,
-        email,
-        name,
-        authProvider: "google",
+        googleId: payload.sub,
+        email: payload.email,
+        name: payload.name,
         profilePicture: payload.picture,
+        authProvider: "google",
       });
     } else {
-      // Update existing user with Google info if needed
       if (!user.googleId) {
-        user.googleId = googleId;
+        user.googleId = payload.sub;
         user.authProvider = "google";
       }
       user.lastLogin = new Date();
       await user.save();
     }
 
-    // Generate JWT
     const token = await new SignJWT({ userId: user._id, email: user.email })
       .setProtectedHeader({ alg: "HS256" })
       .setExpirationTime("7d")
       .sign(JWT_SECRET);
+
+    // 🔥 SET COOKIE
+    res.cookie("token", token, {
+      httpOnly: true,
+      secure: false,
+      sameSite: "lax",
+    });
 
     res.json({
       success: true,
@@ -173,19 +175,21 @@ export const googleLogin = async (req, res) => {
     });
   } catch (error) {
     console.error("Google login error:", error);
-    res
-      .status(401)
-      .json({ error: "Google authentication failed", details: error.message });
+    res.status(401).json({ error: "Google authentication failed" });
   }
 };
 
 /**
- * ✅ Verify Token - Check if JWT is valid
+ * ✅ Verify Token
  */
 export const verifyToken = async (req, res) => {
+  console.log("🔥 verifyToken HIT");
   try {
-    const token = req.headers.authorization?.replace("Bearer ", "");
-
+    const token =
+      req.cookies?.token ||
+      req.headers.authorization?.replace("Bearer ", "");
+    console.log("TOKEN FROM HEADER:", req.headers.authorization);
+console.log("TOKEN FROM COOKIE:", req.cookies?.token);
     if (!token) {
       return res.status(401).json({ error: "Token is required" });
     }
@@ -194,9 +198,6 @@ export const verifyToken = async (req, res) => {
     const userId = verified.payload.userId;
 
     const user = await User.findById(userId);
-    if (!user) {
-      return res.status(401).json({ error: "User not found" });
-    }
 
     res.json({
       success: true,
@@ -204,19 +205,19 @@ export const verifyToken = async (req, res) => {
         id: user._id,
         email: user.email,
         name: user.name,
-        linkedinId: user.linkedinId,
       },
     });
   } catch (error) {
-    console.error("Token verification error:", error);
     res.status(401).json({ error: "Invalid or expired token" });
   }
 };
 
 /**
- * 🚪 Logout - Clear token (frontend will handle)
+ * 🚪 Logout
  */
 export const logout = (req, res) => {
+  res.clearCookie("token");
+
   res.json({
     success: true,
     message: "Logged out successfully",

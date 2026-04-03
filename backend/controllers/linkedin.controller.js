@@ -1,17 +1,25 @@
 import axios from "axios";
+import LinkedInAccount from "../models/LinkedInAccount.js";
+import config from "../config/env.js";
 import User from "../models/User.js";
-
+// 🔗 Step 1: Redirect to LinkedIn
 export const connectLinkedIn = (req, res) => {
-  const url = `https://www.linkedin.com/oauth/v2/authorization?response_type=code&client_id=${process.env.LINKEDIN_CLIENT_ID}&redirect_uri=${process.env.REDIRECT_URI}&scope=openid%20profile%20email%20w_member_social`;
+  const state = Math.random().toString(36).substring(7);
+
+  const url = `https://www.linkedin.com/oauth/v2/authorization?response_type=code&client_id=${process.env.LINKEDIN_CLIENT_ID}&redirect_uri=${config.redirectUri}&state=${state}&scope=openid%20profile%20email%20w_member_social`;
 
   res.redirect(url);
 };
 
+// 🔥 Step 2: Callback (MOST IMPORTANT)
 export const linkedinCallback = async (req, res) => {
   try {
     const code = req.query.code;
 
-    // 🔑 Get Access Token
+    // 🔥 USER FROM JWT
+    const userIdFromJWT = req.user.userId;
+
+    // 1️⃣ Get access token
     const tokenRes = await axios.post(
       "https://www.linkedin.com/oauth/v2/accessToken",
       null,
@@ -19,7 +27,7 @@ export const linkedinCallback = async (req, res) => {
         params: {
           grant_type: "authorization_code",
           code,
-          redirect_uri: process.env.REDIRECT_URI,
+          redirect_uri: config.redirectUri,
           client_id: process.env.LINKEDIN_CLIENT_ID,
           client_secret: process.env.LINKEDIN_CLIENT_SECRET,
         },
@@ -27,108 +35,100 @@ export const linkedinCallback = async (req, res) => {
     );
 
     const accessToken = tokenRes.data.access_token;
-    console.log("[LinkedIn callback] accessToken:", accessToken);
-    console.log("[LinkedIn callback] tokenRes.data:", tokenRes.data);
 
-    // 👤 Try OpenID userinfo (recommended for Sign In with LinkedIn using OpenID Connect)
-    let userInfo;
-    try {
-      const userInfoRes = await axios.get("https://api.linkedin.com/v2/userinfo", {
+    // 2️⃣ Get LinkedIn profile
+    const userInfoRes = await axios.get(
+      "https://api.linkedin.com/v2/userinfo",
+      {
         headers: { Authorization: `Bearer ${accessToken}` },
-      });
-      userInfo = userInfoRes.data;
-    } catch (err) {
-      console.warn("LinkedIn userinfo failed, falling back to /me endpoint", err.message);
-      userInfo = null;
-    }
-
-    console.log("[LinkedIn callback] userInfo:", userInfo);
-
-    // fallback /me for profile details
-    let meRes;
-    try {
-      meRes = await axios.get(
-        "https://api.linkedin.com/v2/me?projection=(id,localizedFirstName,localizedLastName,headline,profilePicture(displayImage~:playableStreams))",
-        {
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-          },
-        }
-      );
-    } catch (err) {
-      console.warn("LinkedIn /me fetch failed", err.message);
-      meRes = null;
-    }
-
-    console.log("[LinkedIn callback] meRes:", meRes?.data);
-
-    const linkedinId = userInfo?.sub || meRes?.data?.id;
-    const firstName = userInfo?.given_name || meRes?.data?.localizedFirstName || "";
-    const lastName = userInfo?.family_name || meRes?.data?.localizedLastName || "";
-    const name = userInfo?.name || `${firstName} ${lastName}`.trim() || "";
-    const headline =
-      (meRes?.data?.headline && typeof meRes.data.headline === "string")
-        ? meRes.data.headline
-        : "";
-
-    let profilePicture = userInfo?.picture || "";
-
-    if (!profilePicture && meRes?.data?.profilePicture) {
-      try {
-        const elements = meRes.data.profilePicture?.['displayImage~']?.elements || [];
-        if (elements.length) {
-          const imageCandidates = elements
-            .flatMap((item) => item.identifiers || [])
-            .filter((id) => id.identifier);
-          if (imageCandidates.length) {
-            profilePicture = imageCandidates[imageCandidates.length - 1].identifier;
-          }
-        }
-      } catch {
-        profilePicture = "";
       }
-    }
+    );
 
-    const email = userInfo?.email || "";
+    const userInfo = userInfoRes.data;
 
-    let user = await User.findOne({ linkedinId });
+    const linkedinId = userInfo.sub;
+    const email = userInfo.email;
+
+    // 🔥 3️⃣ USER MERGE LOGIC (IMPORTANT)
+    let user = await User.findById(userIdFromJWT);
 
     if (!user) {
+      // fallback (rare case)
+      user = await User.findOne({ email });
+    }
+
+    if (!user) {
+      // create new user if not exists
       user = await User.create({
-        linkedinId,
-        accessToken,
-        name,
         email,
-        headline,
-        profilePicture,
+        name: userInfo.name,
+        profilePicture: userInfo.picture,
         authProvider: "linkedin",
       });
     } else {
-      user.accessToken = accessToken;
-      user.name = name || user.name;
-      user.email = email || user.email;
-      user.headline = headline || user.headline;
-      user.profilePicture = profilePicture || user.profilePicture;
+      // update existing user
+      user.profilePicture = userInfo.picture;
       user.authProvider = "linkedin";
       await user.save();
     }
 
-    const encodedName = encodeURIComponent(user.name || "");
-    const encodedEmail = encodeURIComponent(user.email || "");
-    const encodedHeadline = encodeURIComponent(user.headline || "");
-    const encodedProfilePicture = encodeURIComponent(user.profilePicture || "");
-
-    res.redirect(
-      `http://localhost:5173/dashboard?userId=${user._id}&token=${accessToken}&name=${encodedName}&email=${encodedEmail}&headline=${encodedHeadline}&profilePicture=${encodedProfilePicture}`
+    // 🔥 4️⃣ SAVE LINKEDIN ACCOUNT
+    await LinkedInAccount.findOneAndUpdate(
+      { userId: user._id, linkedinId },
+      {
+        userId: user._id,
+        linkedinId,
+        accessToken,
+        name: userInfo.name,
+        email,
+        profilePicture: userInfo.picture,
+      },
+      { upsert: true, returnDocument: "after" }
     );
+
+    res.redirect(`${config.frontendUrl}/dashboard`);
   } catch (error) {
-    console.error("LinkedIn callback error", {
-      message: error.message,
-      status: error.response?.status,
-      data: error.response?.data,
+    console.error("LinkedIn error:", error.response?.data || error.message);
+
+    res.redirect(`${config.frontendUrl}/dashboard?error=linkedin_failed`);
+  }
+};
+
+
+// controllers/linkedin.controller.js
+
+export const getLinkedInAccount = async (req, res) => {
+  try {
+    const account = await LinkedInAccount.findOne({
+      userId: req.user.userId,
     });
 
-    const message = error.response?.data?.error_description || error.message || "Unknown error";
-    res.status(error.response?.status || 500).send(`❌ LinkedIn Auth Failed: ${message}`);
+    if (!account) {
+      return res.json({ connected: false });
+    }
+
+    res.json({
+      connected: true,
+      profile: {
+        name: account.name,
+        email: account.email,
+        profilePicture: account.profilePicture,
+      },
+    });
+  } catch (err) {
+    res.status(500).json({ error: "Failed to fetch account" });
+  }
+};
+
+
+export const disconnectLinkedIn = async (req, res) => {
+  try {
+    await LinkedInAccount.deleteOne({
+      userId: req.user.userId,
+    });
+
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: "Disconnect failed" });
   }
 };

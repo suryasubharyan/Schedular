@@ -3,7 +3,6 @@ import Post from "../models/Post.js";
 
 const router = express.Router();
 
-// Create scheduled post
 router.post("/create", async (req, res) => {
   try {
     const { content, scheduledTime, platform, imageUrl, userId } = req.body;
@@ -28,7 +27,7 @@ router.post("/create", async (req, res) => {
   }
 });
 
-// Get posts for user
+
 router.get("/user/:userId", async (req, res) => {
   try {
     const posts = await Post.find({ userId: req.params.userId }).sort({ scheduledAt: -1 });

@@ -5,21 +5,27 @@ export const AuthContext = createContext();
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
 
-  // 🔥 Load user from localStorage on refresh
   useEffect(() => {
-    const token = localStorage.getItem("token");
-    const userId = localStorage.getItem("userId");
+  const token = localStorage.getItem("token");
+  const appUserId = localStorage.getItem("appUserId");
+  const name = localStorage.getItem("appUserName");
+  const email = localStorage.getItem("appUserEmail");
 
-    if (token && userId) {
-      setUser({ token, userId });
-    }
-  }, []);
+  if (token && appUserId) {
+    setUser({
+      token,
+      userId: appUserId,
+      name,
+      email,
+    });
+  }
+}, []);
 
   const loginUser = (token, userData) => {
     localStorage.setItem("token", token);
-    localStorage.setItem("userId", userData.id);
-    localStorage.setItem("linkedInName", userData.name);
-    localStorage.setItem("linkedInEmail", userData.email);
+    localStorage.setItem("appUserId", userData.id);
+    localStorage.setItem("appUserName", userData.name || "");
+    localStorage.setItem("appUserEmail", userData.email || "");
 
     setUser({
       token,
@@ -30,7 +36,16 @@ export const AuthProvider = ({ children }) => {
   };
 
   const logout = () => {
-    localStorage.clear();
+    localStorage.removeItem("token");
+    localStorage.removeItem("appUserId");
+    localStorage.removeItem("appUserName");
+    localStorage.removeItem("appUserEmail");
+
+    localStorage.removeItem("linkedinUserId");
+    localStorage.removeItem("profileName");
+    localStorage.removeItem("profileHeadline");
+    localStorage.removeItem("profilePicture");
+
     setUser(null);
   };
 
