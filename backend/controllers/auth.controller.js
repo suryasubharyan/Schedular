@@ -52,8 +52,8 @@ export const register = async (req, res) => {
 
     res.cookie("token", token, {
       httpOnly: true,
-      secure: false,
-      sameSite: "lax",
+      secure: process.env.ENV === "prod",
+      sameSite: process.env.ENV === "prod" ? "none" : "lax",
     });
 
     res.status(201).json({
@@ -100,8 +100,8 @@ export const login = async (req, res) => {
 
     res.cookie("token", token, {
       httpOnly: true,
-      secure: false,
-      sameSite: "lax",
+      secure: process.env.ENV === "prod",
+      sameSite: process.env.ENV === "prod" ? "none" : "lax",
     });
 
     res.json({
@@ -181,8 +181,8 @@ export const googleLogin = async (req, res) => {
 
     res.cookie("token", token, {
       httpOnly: true,
-      secure: false,
-      sameSite: "lax",
+      secure: process.env.ENV === "prod",
+      sameSite: process.env.ENV === "prod" ? "none" : "lax",
     });
 
     res.json({
