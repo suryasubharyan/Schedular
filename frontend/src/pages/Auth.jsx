@@ -1,7 +1,10 @@
-import { useState, useContext } from "react";
-import { register, login } from "../api/auth.api";
+import { useContext, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { googleLogin, login, register } from "../api/auth.api";
 import { AuthContext } from "../context/AuthContext";
+import { useNotification } from "../context/NotificationContext";
+
+const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
 
 export default function Auth() {
   const [isLogin, setIsLogin] = useState(true);
@@ -9,36 +12,111 @@ export default function Auth() {
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
   const [loading, setLoading] = useState(false);
-  
-  const { loginUser } = useContext(AuthContext); // ✅ context use
+  const googleButtonRef = useRef(null);
+
+  const { user, authReady, loginUser } = useContext(AuthContext);
+  const { showError, showSuccess } = useNotification();
   const navigate = useNavigate();
 
-  const handleSubmit = async () => {
-    if (!email || !password) {
-      alert("Please fill all fields");
+  useEffect(() => {
+    if (authReady && user) {
+      navigate("/dashboard", { replace: true });
+    }
+  }, [authReady, navigate, user]);
+
+  useEffect(() => {
+    if (!googleClientId || !googleButtonRef.current) {
       return;
     }
-    setLoading(true);
-    try {
-      let res;
-      if (isLogin) {
-        res = await login({ email, password });
-      } else {
-        res = await register({ email, password, name });
+
+    let isMounted = true;
+    let script = document.querySelector('script[src="https://accounts.google.com/gsi/client"]');
+
+    const renderGoogleButton = async () => {
+      if (!window.google?.accounts?.id || !isMounted) return;
+
+      window.google.accounts.id.initialize({
+        client_id: googleClientId,
+        callback: async (response) => {
+          if (!response.credential) {
+            showError("Google login failed");
+            return;
+          }
+
+          setLoading(true);
+
+          try {
+            const res = await googleLogin(response.credential);
+            loginUser(res.data.token, res.data.user);
+            showSuccess("Successfully logged in with Google!");
+            navigate("/dashboard");
+          } catch (error) {
+            showError(error.response?.data?.error || "Google login failed");
+          } finally {
+            setLoading(false);
+          }
+        },
+      });
+
+      googleButtonRef.current.innerHTML = "";
+      window.google.accounts.id.renderButton(googleButtonRef.current, {
+        theme: "filled_white",
+        size: "large",
+        type: "standard",
+        shape: "pill",
+        text: "continue_with",
+        width: 320,
+      });
+    };
+
+    if (window.google?.accounts?.id) {
+      renderGoogleButton();
+    } else {
+      script = script || document.createElement("script");
+      script.src = "https://accounts.google.com/gsi/client";
+      script.async = true;
+      script.defer = true;
+      script.onload = renderGoogleButton;
+
+      if (!document.body.contains(script)) {
+        document.body.appendChild(script);
       }
-      console.log(res.data); // 🔍 debug
-      
+    }
+
+    return () => {
+      isMounted = false;
+    };
+  }, [loginUser, navigate]);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+
+    if (!email || !password || (!isLogin && !name)) {
+      showError("Please fill all fields");
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const res = isLogin
+        ? await login({ email, password })
+        : await register({ email, password, name });
+
       if (res.data.success) {
-        // ✅ context login (NOT localStorage directly)
         loginUser(res.data.token, res.data.user);
-        alert(res.data.message);
+        showSuccess(isLogin ? "Login successful!" : "Account created successfully!");
         navigate("/dashboard");
       } else {
-        alert(res.data.message);
+        showError(res.data.message || "Something went wrong");
       }
     } catch (err) {
-      console.log(err);
-      alert(err.response?.data?.message || "Something went wrong");
+      const message =
+        err.response?.data?.error ||
+        err.response?.data?.message ||
+        err.message;
+
+      showError(message);
     } finally {
       setLoading(false);
     }
@@ -47,16 +125,16 @@ export default function Auth() {
   return (
     <div style={styles.container}>
       <div style={styles.card}>
-        
-        {/* Toggle Buttons */}
         <div style={styles.toggle}>
           <button
+            type="button"
             style={isLogin ? styles.activeTab : styles.tab}
             onClick={() => setIsLogin(true)}
           >
             Login
           </button>
           <button
+            type="button"
             style={!isLogin ? styles.activeTab : styles.tab}
             onClick={() => setIsLogin(false)}
           >
@@ -65,46 +143,40 @@ export default function Auth() {
         </div>
 
         <h2 style={styles.header}>
-          {isLogin ? "Welcome Back 👋" : "Create Account 🚀"}
+          {isLogin ? "Welcome Back" : "Create Account"}
         </h2>
 
-        {/* Input Fields Container */}
-        <div style={styles.inputContainer}>
-          {!isLogin && (
+        <form onSubmit={handleSubmit}>
+          <div style={styles.inputContainer}>
+            {!isLogin && (
+              <input
+                style={styles.input}
+                placeholder="Full Name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+              />
+            )}
+
             <input
               style={styles.input}
-              placeholder="Full Name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
+              placeholder="Email Address"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
             />
-          )}
-          <input
-            style={styles.input}
-            placeholder="Email Address"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-          />
-          <input
-            style={styles.input}
-            type="password"
-            placeholder="Password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-          />
-        </div>
 
-        {/* Action Buttons */}
-        <button
-          style={styles.button}
-          onClick={handleSubmit}
-          disabled={loading}
-        >
-          {loading
-            ? "Processing..."
-            : isLogin
-            ? "Sign In"
-            : "Create Account"}
-        </button>
+            <input
+              style={styles.input}
+              type="password"
+              placeholder="Password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+            />
+          </div>
+
+          <button type="submit" style={styles.button} disabled={loading}>
+            {loading ? "Processing..." : isLogin ? "Sign In" : "Create Account"}
+          </button>
+        </form>
 
         <div style={styles.divider}>
           <span style={styles.dividerLine}></span>
@@ -112,148 +184,148 @@ export default function Auth() {
           <span style={styles.dividerLine}></span>
         </div>
 
-        <button
-          style={styles.googleButton}
-          onClick={() => alert("Google login coming soon!")}
-        >
-          <img 
-            src="https://www.svgrepo.com/show/475656/google-color.svg" 
-            alt="Google" 
-            style={{ width: "20px", height: "20px" }} 
-          />
-          Continue with Google
-        </button>
+        {googleClientId ? (
+          <div style={styles.googleWrapper}>
+            <div ref={googleButtonRef} />
+          </div>
+        ) : (
+          <p style={styles.googleHelp}>
+            Add <code>VITE_GOOGLE_CLIENT_ID</code> in frontend env to enable Google login.
+          </p>
+        )}
       </div>
     </div>
   );
 }
 
-// 🎨 UPDATED PREMIUM STYLES
+
+
 const styles = {
   container: {
-    height: "100vh",
+    minHeight: "100vh",
     display: "flex",
     justifyContent: "center",
     alignItems: "center",
-    background: "linear-gradient(135deg, #111827 0%, #000000 100%)", // Richer dark background
-    fontFamily: "'Inter', 'Segoe UI', sans-serif",
-    color: "#ffffff",
+    background: "#f5f5f5",
+    fontFamily: "'Inter', sans-serif",
+    color: "#111",
   },
+
   card: {
-    width: "400px",
+    width: "100%",
+    maxWidth: "420px",
     padding: "40px",
-    borderRadius: "24px",
-    background: "linear-gradient(145deg, rgba(30, 30, 40, 0.8), rgba(15, 15, 20, 0.8))",
-    backdropFilter: "blur(20px)",
-    WebkitBackdropFilter: "blur(20px)",
-    border: "1px solid rgba(255, 255, 255, 0.08)",
-    boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.7)",
-    display: "flex",
-    flexDirection: "column",
+    borderRadius: "20px",
+    background: "#ffffff",
+    border: "1px solid #e5e5e5",
+    boxShadow: "0 10px 25px rgba(0,0,0,0.06)",
   },
+
   toggle: {
     display: "flex",
-    background: "rgba(0, 0, 0, 0.3)",
-    borderRadius: "14px",
-    padding: "6px",
-    marginBottom: "20px",
-    border: "1px solid rgba(255, 255, 255, 0.05)",
+    background: "#f1f1f1",
+    borderRadius: "12px",
+    padding: "4px",
+    marginBottom: "24px",
   },
+
   tab: {
     flex: 1,
-    padding: "12px",
+    padding: "10px",
     background: "transparent",
-    color: "#9ca3af",
+    color: "#666",
     border: "none",
     borderRadius: "10px",
-    fontSize: "15px",
-    fontWeight: "500",
     cursor: "pointer",
-    transition: "all 0.3s ease",
   },
+
   activeTab: {
     flex: 1,
-    padding: "12px",
-    background: "linear-gradient(135deg, #6366f1, #4f46e5)", // Modern Indigo
-    color: "#ffffff",
+    padding: "10px",
+    background: "#111",
+    color: "#fff",
     border: "none",
     borderRadius: "10px",
-    fontSize: "15px",
-    fontWeight: "600",
     cursor: "pointer",
-    boxShadow: "0 4px 15px rgba(99, 102, 241, 0.4)",
-    transition: "all 0.3s ease",
   },
+
   header: {
-    margin: "0 0 24px 0",
     textAlign: "center",
-    fontSize: "26px",
+    marginBottom: "30px",
+    fontSize: "24px",
     fontWeight: "700",
-    letterSpacing: "-0.5px",
   },
+
   inputContainer: {
     display: "flex",
     flexDirection: "column",
-    gap: "16px", // Replaces manual margins
-    marginBottom: "24px",
+    gap: "18px",
+    marginBottom: "25px",
   },
+
+  inputGroup: {
+    position: "relative",
+  },
+
   input: {
     width: "100%",
-    boxSizing: "border-box", // Prevents padding from breaking width
-    padding: "14px 16px",
-    borderRadius: "12px",
-    border: "1px solid rgba(255, 255, 255, 0.1)",
-    background: "rgba(0, 0, 0, 0.2)",
-    color: "#ffffff",
-    fontSize: "15px",
+    padding: "16px 12px 6px",
+    borderRadius: "10px",
+    border: "1px solid #d1d5db",
+    background: "#fff",
+    fontSize: "14px",
     outline: "none",
-    transition: "border 0.3s ease",
   },
+
+  label: {
+    position: "absolute",
+    left: "12px",
+    top: "12px",
+    fontSize: "13px",
+    color: "#6b7280",
+    background: "#fff",
+    padding: "0 4px",
+    transition: "0.2s ease",
+    pointerEvents: "none",
+  },
+
   button: {
     width: "100%",
-    boxSizing: "border-box",
     padding: "14px",
-    borderRadius: "12px",
-    background: "linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)",
-    color: "#ffffff",
+    borderRadius: "10px",
+    background: "#111",
+    color: "#fff",
     border: "none",
-    fontSize: "16px",
     fontWeight: "600",
     cursor: "pointer",
-    boxShadow: "0 8px 20px rgba(79, 70, 229, 0.3)",
-    transition: "all 0.2s ease",
   },
+
   divider: {
     display: "flex",
     alignItems: "center",
-    margin: "24px 0",
+    margin: "25px 0",
   },
+
   dividerLine: {
     flex: 1,
     height: "1px",
-    background: "rgba(255, 255, 255, 0.1)",
+    background: "#e5e5e5",
   },
+
   dividerText: {
-    padding: "0 14px",
-    color: "#6b7280",
+    padding: "0 10px",
     fontSize: "12px",
-    fontWeight: "600",
+    color: "#777",
   },
-  googleButton: {
-    width: "100%",
-    boxSizing: "border-box",
-    padding: "14px",
-    borderRadius: "12px",
-    background: "#ffffff",
-    color: "#374151",
-    border: "none",
-    fontSize: "15px",
-    fontWeight: "600",
-    cursor: "pointer",
+
+  googleWrapper: {
     display: "flex",
-    alignItems: "center",
     justifyContent: "center",
-    gap: "10px", // Spacing between icon and text
-    boxShadow: "0 4px 15px rgba(255, 255, 255, 0.05)",
   },
 };
+
+
+
+
+
+

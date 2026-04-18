@@ -10,12 +10,12 @@ const userSchema = new mongoose.Schema(
     name: { type: String },
     headline: { type: String },
     profilePicture: { type: String },
+    customProfilePicture: { type: String },
     authProvider: {
       type: String,
       enum: ["local", "google", "linkedin"],
       default: "local",
     },
-
     lastLogin: { type: Date },
   },
   { timestamps: true }

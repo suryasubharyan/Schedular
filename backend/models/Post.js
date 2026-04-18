@@ -10,19 +10,23 @@ const postSchema = new mongoose.Schema(
       default: "linkedin",
     },
     imageUrl: String,
-    
-    // Naye fields frontend ke hisab se
-    scheduledDate: String, // e.g., "2024-10-28"
-    scheduledSlot: String, // e.g., "14:30"
-    scheduledTime: Date,   // Actual Date object (cron job ke liye)
+    imageUrls: {
+      type: [String],
+      default: [],
+    },
+    scheduledDate: String,
+    scheduledSlot: String,
+    scheduledTime: Date,
     
     status: {
       type: String,
-      // Naye UI states aur scheduler states add kiye hain
       enum: ["draft", "saved", "scheduled", "posted", "failed", "processing"],
       default: "draft",
     },
-    
+    linkedInUrl: {
+      type: String,
+      default: "",
+    },
     retryCount: { type: Number, default: 0 } // Scheduler ki retry logic ke liye
   },
   { timestamps: true }

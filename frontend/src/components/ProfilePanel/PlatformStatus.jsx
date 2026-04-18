@@ -1,51 +1,48 @@
-import {
-  LinkedInIcon,
-  FacebookIcon,
-  InstagramIcon,
-  TwitterIcon,
-} from "../Icons";
+import { LinkedInIcon } from "../Icons";
 
-export default function PlatformStatus({ connections }) {
+export default function PlatformStatus({
+  isConnected,
+  onConnect,
+  onDisconnect,
+}) {
   return (
     <div style={styles.container}>
-      <StatusItem icon={<LinkedInIcon />} active={connections.linkedin} />
-      <StatusItem icon={<FacebookIcon />} active={connections.facebook} />
-      <StatusItem icon={<InstagramIcon />} active={connections.instagram} />
-      <StatusItem icon={<TwitterIcon />} active={connections.twitter} />
+      <StatusItem
+        icon={<LinkedInIcon />}
+        active={isConnected}
+        onClick={isConnected ? onDisconnect : onConnect}
+      />
     </div>
   );
 }
 
-const StatusItem = ({ icon, active }) => (
-  <div style={styles.item}>
+const StatusItem = ({ icon, active, onClick }) => (
+  <div
+    onClick={onClick}
+    title={active ? "Disconnect LinkedIn" : "Connect LinkedIn"}
+    style={{
+      ...styles.item,
+      border: active ? "4px solid #22c55e" : "4px solid #ef4444",
+      boxShadow: active
+        ? "0 0 8px rgba(34,197,94,0.6)"
+        : "0 0 6px rgba(239,68,68,0.6)",
+    }}
+  >
     {icon}
-    <span
-      style={{
-        ...styles.dot,
-        background: active ? "#22c55e" : "#ef4444",
-      }}
-    />
   </div>
 );
 
 const styles = {
   container: {
     display: "flex",
-    flexDirection: "column",
-    gap: "10px",
-    marginTop: "10px",
     alignItems: "center",
+    gap: "10px",
   },
   item: {
-    position: "relative",
-  },
-  dot: {
-    position: "absolute",
-    bottom: "-3px",
-    right: "-3px",
-    width: "10px",
-    height: "10px",
-    borderRadius: "50%",
-    border: "2px solid #020617",
+    padding: "6px",
+    borderRadius: "10px",
+    cursor: "pointer",
+    background: "#020617",
+    transition: "all 0.2s ease",
   },
 };

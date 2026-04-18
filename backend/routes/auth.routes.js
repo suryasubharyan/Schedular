@@ -4,8 +4,11 @@ import {
   login,
   googleLogin,
   verifyToken,
+  getCurrentUser,
+  updateProfile,
   logout,
 } from "../controllers/auth.controller.js";
+import { verifyJWT } from "../middleware/verifyJWT.js";
 
 const router = express.Router();
 
@@ -36,6 +39,10 @@ router.post("/google-login", googleLogin);
  * Headers: Authorization: Bearer <token>
  */
 router.get("/verify", verifyToken);
+
+router.get("/me", verifyJWT, getCurrentUser);
+
+router.put("/me", verifyJWT, updateProfile);
 
 /**
  * 🚪 POST /api/auth/logout

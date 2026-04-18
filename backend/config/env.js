@@ -7,7 +7,7 @@ const ENV = process.env.ENV || "local";
 console.log("ENV:", ENV);
 console.log("MONGO_URI_LOCAL:", process.env.MONGO_URI_LOCAL);
 console.log("MONGO_URI_PROD:", process.env.MONGO_URI_PROD);
-
+console.log("FRONTEND_URL_LOCAL:", process.env.FRONTEND_URL_LOCAL);
 const config = {
   mongoUri:
     ENV === "local"

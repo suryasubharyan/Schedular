@@ -12,12 +12,12 @@ const instance = axios.create({
 
 instance.interceptors.request.use((config) => {
   const token = localStorage.getItem("token");
+  const isAuthRoute =
+    config.url?.includes("/auth/login") ||
+    config.url?.includes("/auth/register") ||
+    config.url?.includes("/auth/google-login");
 
-  if (
-    token &&
-    !config.url.includes("/api/auth/login") &&
-    !config.url.includes("/api/auth/register")
-  ) {
+  if (token && !isAuthRoute) {
     config.headers.Authorization = `Bearer ${token}`;
   }
 

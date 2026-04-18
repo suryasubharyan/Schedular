@@ -12,5 +12,11 @@ export const googleLogin = (googleToken) =>
 export const verifyToken = () =>
   axios.get("/api/auth/verify");
 
+export const getCurrentUser = () =>
+  axios.get("/api/auth/me");
+
+export const updateProfile = (data) =>
+  axios.put("/api/auth/me", data);
+
 export const logoutApi = () =>
   axios.post("/api/auth/logout");

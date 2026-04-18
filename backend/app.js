@@ -7,7 +7,7 @@ import config from "./config/env.js";
 import authRoutes from "./routes/auth.routes.js";
 import linkedinRoutes from "./routes/linkedin.routes.js";
 import postRoutes from "./routes/post.routes.js";
-
+import availabilityRoutes from "./routes/availability.routes.js";
 const app = express();
 
 /**
@@ -15,7 +15,7 @@ const app = express();
  */
 app.use(
   cors({
-    origin: config.frontendUrl, // e.g. http://localhost:3000
+    origin: true, // e.g. http://localhost:3000
     credentials: true, // 🔥 allow cookies
     methods: ["GET", "POST", "PUT", "DELETE"],
     allowedHeaders: ["Content-Type", "Authorization"],
@@ -41,6 +41,7 @@ app.get("/", (req, res) => {
 app.use("/api/auth", authRoutes);
 app.use("/api/linkedin", linkedinRoutes);
 app.use("/api/posts", postRoutes);
+app.use("/api/availability", availabilityRoutes);
 
 /**
  * ❌ 404 Handler

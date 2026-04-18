@@ -1,7 +1,7 @@
 import cron from "node-cron";
 import Post from "../models/Post.js";
-import User from "../models/User.js";
-import axios from "axios";
+import LinkedInAccount from "../models/LinkedInAccount.js";
+import { createLinkedInPost } from "./linkedin.service.js";
 
 const startScheduler = () => {
   cron.schedule("* * * * *", async () => {
@@ -10,7 +10,6 @@ const startScheduler = () => {
     try {
       const now = new Date();
 
-      // ✅ pick limited posts (avoid overload)
       const posts = await Post.find({
         scheduledTime: { $lte: now },
         status: "scheduled",
@@ -21,11 +20,10 @@ const startScheduler = () => {
         return;
       }
 
-      // ✅ parallel processing (faster)
       await Promise.all(
         posts.map(async (post) => {
           try {
-            // 🔒 prevent duplicate execution
+            // 🔒 Lock
             const locked = await Post.findOneAndUpdate(
               {
                 _id: post._id,
@@ -35,56 +33,43 @@ const startScheduler = () => {
               { new: true }
             );
 
-            if (!locked) return; // already picked
+            if (!locked) return;
 
-            const user = await User.findById(post.userId);
+            // ✅ FIX: LinkedInAccount use karo
+            const account = await LinkedInAccount.findOne({
+              userId: post.userId,
+            });
 
-            if (!user || !user.accessToken) {
-              post.status = "failed";
-              await post.save();
+            if (!account || !account.accessToken) {
+              await Post.findByIdAndUpdate(post._id, {
+                status: "failed",
+              });
               return;
             }
 
-            // 🚀 LinkedIn post
+            // 🚀 LinkedIn Post
             if (post.platform === "linkedin") {
-              await axios.post(
-                "https://api.linkedin.com/v2/ugcPosts",
-                {
-                  author: `urn:li:person:${user.linkedinId}`,
-                  lifecycleState: "PUBLISHED",
-                  specificContent: {
-                    "com.linkedin.ugc.ShareContent": {
-                      shareCommentary: {
-                        text: post.content,
-                      },
-                      shareMediaCategory: "NONE",
-                    },
-                  },
-                  visibility: {
-                    "com.linkedin.ugc.MemberNetworkVisibility":
-                      "PUBLIC",
-                  },
-                },
-                {
-                  headers: {
-                    Authorization: `Bearer ${user.accessToken}`,
-                    "X-Restli-Protocol-Version": "2.0.0",
-                  },
-                  timeout: 10000, // ⏱️ safety
-                }
-              );
-            }
+              const linkedInUrl = await createLinkedInPost({
+                accessToken: account.accessToken,
+                linkedinId: account.linkedinId,
+                content: post.content,
+                imageUrls: post.imageUrls || (post.imageUrl ? [post.imageUrl] : []),
+              });
 
-            // ✅ success
-            await Post.findByIdAndUpdate(post._id, {
-              status: "posted",
-            });
+              await Post.findByIdAndUpdate(post._id, {
+                status: "posted",
+                linkedInUrl: linkedInUrl || post.linkedInUrl,
+              });
+            } else {
+              await Post.findByIdAndUpdate(post._id, {
+                status: "posted",
+              });
+            }
 
             console.log(`✅ Posted: ${post._id}`);
           } catch (error) {
             console.log(`❌ Failed: ${post._id}`, error.message);
 
-            // 🔁 retry logic (1 retry)
             if (!post.retryCount) post.retryCount = 0;
 
             if (post.retryCount < 1) {
@@ -92,8 +77,6 @@ const startScheduler = () => {
                 status: "scheduled",
                 retryCount: post.retryCount + 1,
               });
-
-              console.log("🔁 Retrying later...");
             } else {
               await Post.findByIdAndUpdate(post._id, {
                 status: "failed",

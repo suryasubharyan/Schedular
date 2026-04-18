@@ -2,7 +2,7 @@ import axios from "axios";
 import LinkedInAccount from "../models/LinkedInAccount.js";
 import config from "../config/env.js";
 import User from "../models/User.js";
-// 🔗 Step 1: Redirect to LinkedIn
+
 export const connectLinkedIn = (req, res) => {
   const state = Math.random().toString(36).substring(7);
 
@@ -11,15 +11,11 @@ export const connectLinkedIn = (req, res) => {
   res.redirect(url);
 };
 
-// 🔥 Step 2: Callback (MOST IMPORTANT)
 export const linkedinCallback = async (req, res) => {
   try {
     const code = req.query.code;
-
-    // 🔥 USER FROM JWT
     const userIdFromJWT = req.user.userId;
 
-    // 1️⃣ Get access token
     const tokenRes = await axios.post(
       "https://www.linkedin.com/oauth/v2/accessToken",
       null,
@@ -36,7 +32,6 @@ export const linkedinCallback = async (req, res) => {
 
     const accessToken = tokenRes.data.access_token;
 
-    // 2️⃣ Get LinkedIn profile
     const userInfoRes = await axios.get(
       "https://api.linkedin.com/v2/userinfo",
       {
@@ -45,34 +40,23 @@ export const linkedinCallback = async (req, res) => {
     );
 
     const userInfo = userInfoRes.data;
-
     const linkedinId = userInfo.sub;
     const email = userInfo.email;
-
-    // 🔥 3️⃣ USER MERGE LOGIC (IMPORTANT)
     let user = await User.findById(userIdFromJWT);
-
     if (!user) {
-      // fallback (rare case)
       user = await User.findOne({ email });
     }
-
     if (!user) {
-      // create new user if not exists
       user = await User.create({
         email,
         name: userInfo.name,
-        profilePicture: userInfo.picture,
         authProvider: "linkedin",
       });
     } else {
-      // update existing user
-      user.profilePicture = userInfo.picture;
       user.authProvider = "linkedin";
       await user.save();
     }
 
-    // 🔥 4️⃣ SAVE LINKEDIN ACCOUNT
     await LinkedInAccount.findOneAndUpdate(
       { userId: user._id, linkedinId },
       {
@@ -94,9 +78,6 @@ export const linkedinCallback = async (req, res) => {
   }
 };
 
-
-// controllers/linkedin.controller.js
-
 export const getLinkedInAccount = async (req, res) => {
   try {
     const account = await LinkedInAccount.findOne({
@@ -106,7 +87,6 @@ export const getLinkedInAccount = async (req, res) => {
     if (!account) {
       return res.json({ connected: false });
     }
-
     res.json({
       connected: true,
       profile: {
@@ -120,13 +100,11 @@ export const getLinkedInAccount = async (req, res) => {
   }
 };
 
-
 export const disconnectLinkedIn = async (req, res) => {
   try {
     await LinkedInAccount.deleteOne({
       userId: req.user.userId,
     });
-
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: "Disconnect failed" });

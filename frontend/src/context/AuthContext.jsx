@@ -1,46 +1,72 @@
-import { createContext, useState, useEffect } from "react";
+import { createContext, useEffect, useState } from "react";
+import {
+  logoutApi,
+  updateProfile as updateProfileApi,
+  verifyToken,
+} from "../api/auth.api";
 
 export const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
+  const [authReady, setAuthReady] = useState(false);
 
   useEffect(() => {
-  const token = localStorage.getItem("token");
-  const appUserId = localStorage.getItem("appUserId");
-  const name = localStorage.getItem("appUserName");
-  const email = localStorage.getItem("appUserEmail");
+    const restoreSession = async () => {
+      const token = localStorage.getItem("token");
 
-  if (token && appUserId) {
-    setUser({
-      token,
-      userId: appUserId,
-      name,
-      email,
-    });
-  }
-}, []);
+      if (!token) {
+        setAuthReady(true);
+        return;
+      }
+
+      try {
+        const res = await verifyToken();
+        setUser({
+          ...res.data.user,
+          token,
+        });
+      } catch {
+        localStorage.removeItem("token");
+        setUser(null);
+      } finally {
+        setAuthReady(true);
+      }
+    };
+
+    restoreSession();
+  }, []);
 
   const loginUser = (token, userData) => {
     localStorage.setItem("token", token);
-    localStorage.setItem("appUserId", userData.id);
-    localStorage.setItem("appUserName", userData.name || "");
-    localStorage.setItem("appUserEmail", userData.email || "");
 
     setUser({
+      ...userData,
       token,
-      userId: userData.id,
-      name: userData.name,
-      email: userData.email,
     });
   };
 
-  const logout = () => {
-    localStorage.removeItem("token");
-    localStorage.removeItem("appUserId");
-    localStorage.removeItem("appUserName");
-    localStorage.removeItem("appUserEmail");
+  const updateUser = async (payload) => {
+    const res = await updateProfileApi(payload);
+    const token = localStorage.getItem("token");
 
+    setUser((prevUser) => ({
+      ...prevUser,
+      ...res.data.user,
+      token,
+    }));
+
+    return res;
+  };
+
+  const logout = async () => {
+    try {
+      await logoutApi();
+    } catch {
+      // Local cleanup should still happen if the API is unavailable.
+    }
+
+    localStorage.removeItem("token");
     localStorage.removeItem("linkedinUserId");
     localStorage.removeItem("profileName");
     localStorage.removeItem("profileHeadline");
@@ -50,7 +76,15 @@ export const AuthProvider = ({ children }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ user, loginUser, logout }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        authReady,
+        loginUser,
+        updateUser,
+        logout,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );
