@@ -1,7 +1,12 @@
 import axios from "axios";
+import { jwtVerify } from "jose";
 import LinkedInAccount from "../models/LinkedInAccount.js";
 import config from "../config/env.js";
 import User from "../models/User.js";
+
+const JWT_SECRET = new TextEncoder().encode(
+  process.env.JWT_SECRET || "your-super-secret-key-change-in-env"
+);
 
 export const connectLinkedIn = (req, res) => {
   const state = Math.random().toString(36).substring(7);
@@ -14,7 +19,17 @@ export const connectLinkedIn = (req, res) => {
 export const linkedinCallback = async (req, res) => {
   try {
     const code = req.query.code;
-    const userIdFromJWT = req.user.userId;
+    let userIdFromJWT = null;
+    const token = req.cookies?.token || req.headers.authorization?.replace("Bearer ", "");
+
+    if (token) {
+      try {
+        const verified = await jwtVerify(token, JWT_SECRET);
+        userIdFromJWT = verified.payload.userId;
+      } catch (err) {
+        console.warn("LinkedIn callback JWT verify failed:", err.message);
+      }
+    }
 
     const tokenRes = await axios.post(
       "https://www.linkedin.com/oauth/v2/accessToken",
@@ -42,10 +57,16 @@ export const linkedinCallback = async (req, res) => {
     const userInfo = userInfoRes.data;
     const linkedinId = userInfo.sub;
     const email = userInfo.email;
-    let user = await User.findById(userIdFromJWT);
-    if (!user) {
+    let user = null;
+
+    if (userIdFromJWT) {
+      user = await User.findById(userIdFromJWT);
+    }
+
+    if (!user && email) {
       user = await User.findOne({ email });
     }
+
     if (!user) {
       user = await User.create({
         email,
