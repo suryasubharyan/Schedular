@@ -21,7 +21,7 @@ app.use(
         process.env.FRONTEND_URL_PROD,
       ].filter(Boolean);
 
-      if (!origin || allowedOrigins.includes(origin)) {
+      if (!origin || allowedOrigins.includes(origin) || allowedOrigins.length === 0) {
         return callback(null, true);
       }
 
