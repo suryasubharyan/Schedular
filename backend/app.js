@@ -15,8 +15,19 @@ const app = express();
  */
 app.use(
   cors({
-    origin: true, // e.g. http://localhost:3000
-    credentials: true, // 🔥 allow cookies
+    origin: (origin, callback) => {
+      const allowedOrigins = [
+        process.env.FRONTEND_URL_LOCAL,
+        process.env.FRONTEND_URL_PROD,
+      ].filter(Boolean);
+
+      if (!origin || allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+
+      callback(new Error("CORS blocked by server"));
+    },
+    credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE"],
     allowedHeaders: ["Content-Type", "Authorization"],
   })
