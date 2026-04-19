@@ -19,17 +19,7 @@ export const connectLinkedIn = (req, res) => {
 export const linkedinCallback = async (req, res) => {
   try {
     const code = req.query.code;
-    let userIdFromJWT = null;
-    const token = req.cookies?.token || req.headers.authorization?.replace("Bearer ", "");
 
-    if (token) {
-      try {
-        const verified = await jwtVerify(token, JWT_SECRET);
-        userIdFromJWT = verified.payload.userId;
-      } catch (err) {
-        console.warn("LinkedIn callback JWT verify failed:", err.message);
-      }
-    }
 
     const tokenRes = await axios.post(
       "https://www.linkedin.com/oauth/v2/accessToken",
@@ -56,28 +46,13 @@ export const linkedinCallback = async (req, res) => {
 
     const userInfo = userInfoRes.data;
     const linkedinId = userInfo.sub;
-    const email = userInfo.email;
-    let user = null;
 
-    if (userIdFromJWT) {
-      user = await User.findById(userIdFromJWT);
-    }
+    const token = req.cookies?.token || req.headers.authorization?.replace("Bearer ", "");
 
-    if (!user && email) {
-      user = await User.findOne({ email });
-    }
+    const verified = await jwtVerify(token, JWT_SECRET);
+    const user = await User.findById(verified.payload.userId);
 
-    if (!user) {
-      user = await User.create({
-        email,
-        name: userInfo.name,
-        authProvider: "linkedin",
-      });
-    } else {
-      user.authProvider = "linkedin";
-      await user.save();
-    }
-
+    
     await LinkedInAccount.findOneAndUpdate(
       { userId: user._id, linkedinId },
       {
@@ -85,16 +60,15 @@ export const linkedinCallback = async (req, res) => {
         linkedinId,
         accessToken,
         name: userInfo.name,
-        email,
+        email: userInfo.email,
         profilePicture: userInfo.picture,
+        connected: true
       },
       { upsert: true, returnDocument: "after" }
     );
-
     res.redirect(`${config.frontendUrl}/dashboard`);
   } catch (error) {
     console.error("LinkedIn error:", error.response?.data || error.message);
-
     res.redirect(`${config.frontendUrl}/dashboard?error=linkedin_failed`);
   }
 };
@@ -103,13 +77,15 @@ export const getLinkedInAccount = async (req, res) => {
   try {
     const account = await LinkedInAccount.findOne({
       userId: req.user.userId,
-    });
+      connected: true,
+    }).sort({ createdAt: -1 });
 
     if (!account) {
       return res.json({ connected: false });
     }
     res.json({
       connected: true,
+      accountId: account._id,
       profile: {
         name: account.name,
         email: account.email,
@@ -123,9 +99,10 @@ export const getLinkedInAccount = async (req, res) => {
 
 export const disconnectLinkedIn = async (req, res) => {
   try {
-    await LinkedInAccount.deleteOne({
-      userId: req.user.userId,
-    });
+    await LinkedInAccount.findOneAndUpdate(
+      { userId: req.user.userId, connected: true },
+      { connected: false, accessToken: null }
+    );
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: "Disconnect failed" });

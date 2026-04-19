@@ -3,9 +3,10 @@ import { SignJWT, jwtVerify } from "jose";
 import User from "../models/User.js";
 import { OAuth2Client } from "google-auth-library";
 
-const JWT_SECRET = new TextEncoder().encode(
-  process.env.JWT_SECRET || "your-super-secret-key-change-in-env"
-);
+const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET);
+if (!process.env.JWT_SECRET) {
+  throw new Error("JWT_SECRET environment variable is required");
+}
 
 const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
@@ -18,6 +19,27 @@ const serializeUser = (user) => ({
   authProvider: user.authProvider,
 });
 
+const validatePassword = (password) => {
+  if (!password || password.length < 8) {
+    return "Password must be at least 8 characters long";
+  }
+  if (!/[a-z]/.test(password)) {
+    return "Password must contain at least one lowercase letter";
+  }
+  if (!/[A-Z]/.test(password)) {
+    return "Password must contain at least one uppercase letter";
+  }
+  if (!/\d/.test(password)) {
+    return "Password must contain at least one number";
+  }
+  return null; // valid
+};
+
+const validateEmail = (email) => {
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  return emailRegex.test(email);
+};
+
 export const register = async (req, res) => {
   try {
     const { email, password, name } = req.body;
@@ -27,12 +49,21 @@ export const register = async (req, res) => {
     }
 
     const normalizedEmail = email.trim().toLowerCase();
+    if (!validateEmail(normalizedEmail)) {
+      return res.status(400).json({ error: "Invalid email format" });
+    }
+
+    const passwordError = validatePassword(password);
+    if (passwordError) {
+      return res.status(400).json({ error: passwordError });
+    }
+
     const existingUser = await User.findOne({ email: normalizedEmail });
     if (existingUser) {
       return res.status(400).json({ error: "User already exists" });
     }
 
-    const hashedPassword = await bcrypt.hash(password, 10);
+    const hashedPassword = await bcrypt.hash(password, 12);
 
     const user = await User.create({
       email: normalizedEmail,
@@ -42,25 +73,9 @@ export const register = async (req, res) => {
       lastLogin: new Date(),
     });
 
-    const token = await new SignJWT({
-      userId: user._id.toString(),
-      email: user.email,
-    })
-      .setProtectedHeader({ alg: "HS256" })
-      .setExpirationTime("7d")
-      .sign(JWT_SECRET);
-
-    res.cookie("token", token, {
-      httpOnly: true,
-      secure: process.env.ENV === "prod",
-      sameSite: process.env.ENV === "prod" ? "none" : "lax",
-    });
-
     res.status(201).json({
       success: true,
       message: "Account created successfully",
-      token,
-      user: serializeUser(user),
     });
   } catch (error) {
     console.error("Register error:", error);
@@ -77,6 +92,10 @@ export const login = async (req, res) => {
     }
 
     const normalizedEmail = email.trim().toLowerCase();
+    if (!validateEmail(normalizedEmail)) {
+      return res.status(400).json({ error: "Invalid email format" });
+    }
+
     const user = await User.findOne({ email: normalizedEmail, authProvider: "local" });
     if (!user) {
       return res.status(401).json({ error: "Invalid email or password" });
@@ -107,7 +126,6 @@ export const login = async (req, res) => {
     res.json({
       success: true,
       message: "Login successful",
-      token,
       user: serializeUser(user),
     });
   } catch (error) {
@@ -188,7 +206,6 @@ export const googleLogin = async (req, res) => {
     res.json({
       success: true,
       message: "Google login successful",
-      token,
       user: serializeUser(user),
     });
   } catch (error) {

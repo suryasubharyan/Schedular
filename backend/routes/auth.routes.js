@@ -1,4 +1,5 @@
 import express from "express";
+import rateLimit from "express-rate-limit";
 import {
   register,
   login,
@@ -12,6 +13,14 @@ import { verifyJWT } from "../middleware/verifyJWT.js";
 
 const router = express.Router();
 
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 5, // limit each IP to 5 requests per windowMs
+  message: "Too many authentication attempts, please try again later.",
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
 /**
  * 📝 POST /api/auth/register
  * Register with email and password
@@ -24,14 +33,14 @@ router.post("/register", register);
  * Login with email and password
  * Body: { email, password }
  */
-router.post("/login", login);
+router.post("/login", authLimiter, login);
 
 /**
  * 🔵 POST /api/auth/google-login
  * Login with Google OAuth token
  * Body: { googleToken }
  */
-router.post("/google-login", googleLogin);
+router.post("/google-login", authLimiter, googleLogin);
 
 /**
  * ✅ GET /api/auth/verify
@@ -48,6 +57,6 @@ router.put("/me", verifyJWT, updateProfile);
  * 🚪 POST /api/auth/logout
  * Logout user (frontend clears token)
  */
-router.post("/logout", logout);
+router.post("/logout", verifyJWT, logout);
 
 export default router;

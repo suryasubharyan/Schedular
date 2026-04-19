@@ -10,83 +10,96 @@ const startScheduler = () => {
     try {
       const now = new Date();
 
+      // 🔥 STEP 1: FETCH POSTS
       const posts = await Post.find({
-        scheduledTime: { $lte: now },
         status: "scheduled",
-      }).limit(10);
+        scheduledTime: { $lte: now },
+      })
+        .sort({ scheduledTime: 1 })
+        .limit(10);
 
       if (!posts.length) {
         console.log("📭 No posts to publish");
         return;
       }
 
-      await Promise.all(
-        posts.map(async (post) => {
-          try {
-            // 🔒 Lock
-            const locked = await Post.findOneAndUpdate(
-              {
-                _id: post._id,
-                status: "scheduled",
-              },
-              { status: "processing" },
-              { new: true }
-            );
+      // 🔥 STEP 2: PROCESS EACH POST
+      for (const post of posts) {
+        try {
+          // 🔒 LOCK (avoid duplicate processing)
+          const lockedPost = await Post.findOneAndUpdate(
+            {
+              _id: post._id,
+              status: "scheduled",
+            },
+            {
+              status: "processing",
+            },
+            { new: true }
+          );
 
-            if (!locked) return;
+          if (!lockedPost) continue;
 
-            // ✅ FIX: LinkedInAccount use karo
-            const account = await LinkedInAccount.findOne({
-              userId: post.userId,
+          // 🔥 STEP 3: GET LINKEDIN ACCOUNT (FIXED)
+          const account = await LinkedInAccount.findById(
+            lockedPost.accountId
+          );
+
+          if (!account || !account.accessToken) {
+            console.log("❌ No LinkedIn account");
+            await Post.findByIdAndUpdate(lockedPost._id, {
+              status: "failed",
             });
-
-            if (!account || !account.accessToken) {
-              await Post.findByIdAndUpdate(post._id, {
-                status: "failed",
-              });
-              return;
-            }
-
-            // 🚀 LinkedIn Post
-            if (post.platform === "linkedin") {
-              const linkedInUrl = await createLinkedInPost({
-                accessToken: account.accessToken,
-                linkedinId: account.linkedinId,
-                content: post.content,
-                imageUrls: post.imageUrls || (post.imageUrl ? [post.imageUrl] : []),
-              });
-
-              await Post.findByIdAndUpdate(post._id, {
-                status: "posted",
-                linkedInUrl: linkedInUrl || post.linkedInUrl,
-              });
-            } else {
-              await Post.findByIdAndUpdate(post._id, {
-                status: "posted",
-              });
-            }
-
-            console.log(`✅ Posted: ${post._id}`);
-          } catch (error) {
-            console.log(`❌ Failed: ${post._id}`, error.message);
-
-            if (!post.retryCount) post.retryCount = 0;
-
-            if (post.retryCount < 1) {
-              await Post.findByIdAndUpdate(post._id, {
-                status: "scheduled",
-                retryCount: post.retryCount + 1,
-              });
-            } else {
-              await Post.findByIdAndUpdate(post._id, {
-                status: "failed",
-              });
-            }
+            continue;
           }
-        })
-      );
+
+          // 🚀 STEP 4: POST TO LINKEDIN
+          let linkedInUrl = "";
+
+          if (lockedPost.platform === "linkedin") {
+            linkedInUrl = await createLinkedInPost({
+              accessToken: account.accessToken,
+              linkedinId: account.linkedinId,
+              content: lockedPost.content,
+              imageUrls:
+                lockedPost.imageUrls?.length
+                  ? lockedPost.imageUrls
+                  : [],
+            });
+          }
+
+          // ✅ STEP 5: MARK SUCCESS
+          await Post.findByIdAndUpdate(lockedPost._id, {
+            status: "posted",
+            linkedInUrl: linkedInUrl || "",
+            retryCount: 0,
+          });
+
+          console.log(`✅ Posted: ${lockedPost._id}`);
+
+        } catch (error) {
+          console.log(`❌ Failed: ${post._id}`, error.message);
+
+          // 🔁 RETRY LOGIC
+          const retryPost = await Post.findById(post._id);
+
+          if (!retryPost) continue;
+
+          if (retryPost.retryCount < 3) {
+            await Post.findByIdAndUpdate(post._id, {
+              status: "scheduled",
+              retryCount: retryPost.retryCount + 1,
+            });
+          } else {
+            await Post.findByIdAndUpdate(post._id, {
+              status: "failed",
+            });
+          }
+        }
+      }
+
     } catch (err) {
-      console.log("🚨 Scheduler Error:", err.message);
+      console.error("🚨 Scheduler Error:", err.message);
     }
   });
 };

@@ -18,7 +18,10 @@ app.use(
     origin: (origin, callback) => {
       const allowedOrigins = [
         process.env.FRONTEND_URL_LOCAL,
+        process.env.FRONTEND_URL_LOCAL_ALT,
         process.env.FRONTEND_URL_PROD,
+        "http://127.0.0.1:5173",
+        "http://127.0.0.1:5174",
       ].filter(Boolean);
 
       if (!origin || allowedOrigins.includes(origin) || allowedOrigins.length === 0) {
