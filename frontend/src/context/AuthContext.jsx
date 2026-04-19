@@ -3,6 +3,9 @@ import {
   logoutApi,
   updateProfile as updateProfileApi,
   verifyToken,
+  login as loginApi,
+  register as registerApi,
+  googleLogin as googleLoginApi,
 } from "../api/auth.api";
 
 export const AuthContext = createContext();
@@ -12,50 +15,43 @@ export const AuthProvider = ({ children }) => {
   const [authReady, setAuthReady] = useState(false);
 
   useEffect(() => {
-    const restoreSession = async () => {
-      const token = localStorage.getItem("token");
-
-      if (!token) {
-        setAuthReady(true);
-        return;
-      }
-
+    const checkAuth = async () => {
       try {
         const res = await verifyToken();
-        setUser({
-          ...res.data.user,
-          token,
-        });
+        setUser(res.data.user);
       } catch {
-        localStorage.removeItem("token");
         setUser(null);
       } finally {
         setAuthReady(true);
       }
     };
 
-    restoreSession();
+    checkAuth();
   }, []);
 
-  const loginUser = (token, userData) => {
-    localStorage.setItem("token", token);
+  const login = async (email, password) => {
+    const res = await loginApi({ email, password });
+    setUser(res.data.user);
+    return res;
+  };
 
-    setUser({
-      ...userData,
-      token,
-    });
+  const register = async (email, password, name) => {
+    const res = await registerApi({ email, password, name });
+    return res;
+  };
+
+  const googleLogin = async (credential) => {
+    const res = await googleLoginApi(credential);
+    setUser(res.data.user);
+    return res;
   };
 
   const updateUser = async (payload) => {
     const res = await updateProfileApi(payload);
-    const token = localStorage.getItem("token");
-
     setUser((prevUser) => ({
       ...prevUser,
       ...res.data.user,
-      token,
     }));
-
     return res;
   };
 
@@ -66,12 +62,6 @@ export const AuthProvider = ({ children }) => {
       // Local cleanup should still happen if the API is unavailable.
     }
 
-    localStorage.removeItem("token");
-    localStorage.removeItem("linkedinUserId");
-    localStorage.removeItem("profileName");
-    localStorage.removeItem("profileHeadline");
-    localStorage.removeItem("profilePicture");
-
     setUser(null);
   };
 
@@ -80,7 +70,9 @@ export const AuthProvider = ({ children }) => {
       value={{
         user,
         authReady,
-        loginUser,
+        login,
+        register,
+        googleLogin,
         updateUser,
         logout,
       }}

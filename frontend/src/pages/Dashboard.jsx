@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import DatePicker from "react-datepicker";
 import {
   createPostAPI,
   deletePostAPI,
@@ -8,17 +9,12 @@ import {
 import api from "../api/axios";
 import ConnectPlatforms from "../components/ConnectPlatforms";
 import CreatePostLayout from "../components/createPost/CreatePostLayout";
-import {
-  getLinkedInAccount,
-  disconnectLinkedIn,
-  connectLinkedIn
-} from "../api/linkedin.api";
+import { getLinkedInAccount } from "../api/linkedin.api";
 import useAuth from "../hooks/useAuth";
-import Header from "../components/Header";
 import { useNotification } from "../context/NotificationContext";
-
+import profileIcon from "../assets/profile-icon.svg";
 export default function Dashboard() {
-  const { user, logout } = useAuth();
+  const { user } = useAuth();
   const { showError, showSuccess, showWarning } = useNotification();
   const navigate = useNavigate();
   const [posts, setPosts] = useState([]);
@@ -29,36 +25,105 @@ export default function Dashboard() {
   const [modalMode, setModalMode] = useState("scheduled");
   const [content, setContent] = useState("");
   const [imageUrls, setImageUrls] = useState([]);
-
-  const [selectedDate, setSelectedDate] = useState("");
-  const [selectedSlot, setSelectedSlot] = useState("");
+  const [selectedDateTime, setSelectedDateTime] = useState(
+    new Date(Date.now() + 10 * 60000) 
+  );
 
   const [isConnected, setIsConnected] = useState(false);
   const [profile, setProfile] = useState(null);
+  
+const date = selectedDateTime
+  ? selectedDateTime.toLocaleDateString("en-CA")
+  : null;
 
-  const [sidebarWidth, setSidebarWidth] = useState(280);
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-  const [isResizing, setIsResizing] = useState(false);
+const time = selectedDateTime
+  ? selectedDateTime.toTimeString().slice(0, 5)
+  : null;
 
   const resetComposer = () => {
     setContent("");
     setImageUrls([]);
-    setSelectedDate("");
-    setSelectedSlot("");
+    setSelectedDateTime(null);
   };
 
-const handleConnectLinkedIn = () => {
-  connectLinkedIn(); // 🔥 direct use
+  const handleDisconnect = async () => {
+  try {
+    await api.post("/api/linkedin/disconnect");
+
+    setIsConnected(false);
+    setProfile(null);
+    setPosts([]);
+
+    showSuccess("LinkedIn disconnected");
+  } catch {
+    showError("Failed to disconnect");
+  }
 };
 
-const handleDisconnectLinkedIn = async () => {
-  await disconnectLinkedIn();
+const filteredPosts = posts.filter((p) => p.status === activeTab);
 
-  setIsConnected(false);
-  setProfile(null);
-  setPosts([]);
-  setSelectedPost(null);
-  resetComposer();
+const renderPostList = () => {
+  if (!filteredPosts.length) {
+    return (
+      <div style={{ textAlign: "center", padding: "40px", color: "#64748b" }}>
+        No {activeTab} posts found
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
+      {filteredPosts.map((post) => (
+        <div
+          key={post._id}
+          onClick={() => syncSelectedPost(post)}
+          style={{
+            padding: "16px",
+            borderRadius: "16px",
+            background: "#fff",
+            border: "1px solid #e2e8f0",
+            cursor: "pointer",
+            position: "relative",
+          }}
+        >
+          {/* content */}
+          <div style={{ fontSize: "14px", fontWeight: "500" }}>
+            {post.content.slice(0, 100)}...
+          </div>
+
+          {/* status badge */}
+          <div
+            style={{
+              position: "absolute",
+              top: "10px",
+              right: "10px",
+              fontSize: "10px",
+              fontWeight: "700",
+              padding: "4px 8px",
+              borderRadius: "999px",
+              background: "#e2e8f0",
+            }}
+          >
+            {post.status.toUpperCase()}
+          </div>
+
+          {/* scheduled info */}
+          {post.status === "scheduled" && (
+            <div style={{ marginTop: "8px", fontSize: "12px", color: "#2563eb" }}>
+              ⏰ {post.scheduledDate} • {post.scheduledSlot}
+            </div>
+          )}
+
+          {/* posted info */}
+          {post.status === "posted" && (
+            <div style={{ marginTop: "8px", fontSize: "12px", color: "#16a34a" }}>
+              🚀 Published
+            </div>
+          )}
+        </div>
+      ))}
+    </div>
+  );
 };
 
   const syncSelectedPost = (post) => {
@@ -71,8 +136,11 @@ const handleDisconnectLinkedIn = async () => {
         ? [post.imageUrl]
         : []
     );
-    setSelectedDate(post?.scheduledDate || "");
-    setSelectedSlot(post?.scheduledSlot || "");
+    setSelectedDateTime(
+      post?.scheduledDate && post?.scheduledSlot
+        ? new Date(`${post.scheduledDate}T${post.scheduledSlot}`)
+        : null
+    );
   };
 
   const loadPosts = async () => {
@@ -86,55 +154,51 @@ const handleDisconnectLinkedIn = async () => {
       const nextPosts = Array.isArray(res.data) ? res.data : [];
       setPosts(nextPosts);
       return nextPosts;
-    } catch (err) {
+    } catch {
       setPosts([]);
       return [];
     }
   };
 
-  const loadLinkedIn = async () => {
-    try {
-      const res = await getLinkedInAccount();
+  useEffect(() => {
+    const fetchLinkedIn = async () => {
+      try {
+        const res = await getLinkedInAccount();
 
-      if (res.data.connected) {
-        setIsConnected(true);
-        setProfile(res.data.profile);
-      } else {
+        if (res.data.connected) {
+          setIsConnected(true);
+          setProfile(res.data.profile);
+        } else {
+          setIsConnected(false);
+          setProfile(null);
+        }
+      } catch {
         setIsConnected(false);
         setProfile(null);
       }
-    } catch {
-      setIsConnected(false);
-      setProfile(null);
-    }
-  };
+    };
 
-  useEffect(() => {
-    loadLinkedIn();
+    fetchLinkedIn();
   }, []);
 
   useEffect(() => {
-    loadPosts();
+    const fetchPosts = async () => {
+      if (!isConnected) {
+        setPosts([]);
+        return;
+      }
+
+      try {
+        const res = await api.get("/api/posts");
+        const nextPosts = Array.isArray(res.data) ? res.data : [];
+        setPosts(nextPosts);
+      } catch {
+        setPosts([]);
+      }
+    };
+
+    fetchPosts();
   }, [isConnected]);
-
-  useEffect(() => {
-    const handleMouseMove = (e) => {
-      if (!isResizing) return;
-      let newWidth = e.clientX;
-      if (newWidth < 200) newWidth = 200;
-      if (newWidth > 500) newWidth = 500;
-      setSidebarWidth(newWidth);
-    };
-
-    const stopResize = () => setIsResizing(false);
-    window.addEventListener("mousemove", handleMouseMove);
-    window.addEventListener("mouseup", stopResize);
-
-    return () => {
-      window.removeEventListener("mousemove", handleMouseMove);
-      window.removeEventListener("mouseup", stopResize);
-    };
-  }, [isResizing]);
 
   const handleSavePost = async (forceStatus = null) => {
     if (!isConnected) {
@@ -149,10 +213,10 @@ const handleDisconnectLinkedIn = async () => {
 
     const finalStatus = forceStatus || modalMode;
 
-    if (finalStatus === "scheduled" && (!selectedDate || !selectedSlot)) {
-      showWarning("Select date and time to schedule");
-      return;
-    }
+   if (finalStatus === "scheduled" && !selectedDateTime) {
+  showWarning("Select date and time to schedule");
+  return;
+}
 
     try {
       if (finalStatus === "deleted") {
@@ -183,8 +247,8 @@ const handleDisconnectLinkedIn = async () => {
         content: content.trim(),
         platform: "linkedin",
         imageUrls,
-        scheduledDate: finalStatus === "scheduled" ? selectedDate : null,
-        scheduledSlot: finalStatus === "scheduled" ? selectedSlot : null,
+        scheduledDate: finalStatus === "scheduled" ? date : null,
+        scheduledSlot: finalStatus === "scheduled" ? time : null,
         status: finalStatus,
       };
 
@@ -227,599 +291,655 @@ const handleDisconnectLinkedIn = async () => {
     resetComposer();
   };
 
-  const handlePostSelect = (post) => {
-    syncSelectedPost(post);
-    setCurrentView("dashboard");
-    setActiveTab(post.status);
-  };
-
   const getCount = (status) => posts.filter((p) => p.status === status).length;
-  const filteredPosts = posts.filter((p) => p.status === activeTab);
   const items = ["draft", "saved", "scheduled", "posted"];
-
-  const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen);
-
-  const handleLogout = async () => {
-    await logout();
-    navigate("/", { replace: true });
-  };
 
   return (
     <div style={styles.container}>
-      {!isSidebarOpen && (
-        <button onClick={toggleSidebar} style={styles.floatingToggle}>
-          ☰
-        </button>
-      )}
-
-      {isSidebarOpen && (
-        <div style={{ ...styles.leftPanel, width: sidebarWidth }}>
-          <div style={styles.sidebarHeader}>
-            <button onClick={toggleSidebar} style={styles.menuBtn}>
-              ☰
-            </button>
-            <h3
-              style={{ margin: 0, cursor: "pointer" }}
-              onClick={() => setCurrentView("dashboard")}
-            >
-              Posts
-            </h3>
+      <aside style={styles.sidebar}>
+        <div style={styles.sidebarLogoSection}>
+          <div style={styles.sidebarLogo}>⚡</div>
+          <div>
+            <h2 style={styles.sidebarTitle}>Schedular</h2>
+            <p style={styles.sidebarSubtitle}>Plan, schedule and publish smarter</p>
           </div>
+        </div>
 
+        <button type="button" style={styles.sidebarCreateButton} onClick={() => openCreateView("draft")}> 
+          <span style={styles.createIcon}>+</span>
+          Create Post
+        </button>
+
+        <div style={styles.sidebarSectionTitle}>POSTS</div>
+
+        <nav style={styles.sidebarNav}>
           {items.map((item) => (
-            <div
+            <button
               key={item}
+              type="button"
               onClick={() => {
                 setActiveTab(item);
                 setCurrentView("dashboard");
                 setSelectedPost(null);
               }}
               style={{
-                ...styles.card,
-                background:
-                  activeTab === item && currentView === "dashboard"
-                    ? "#0077b5"
-                    : "#ffffff",
-                color:
-                  activeTab === item && currentView === "dashboard"
-                    ? "#ffffff"
-                    : "#1a1a1a",
-                border:
-                  activeTab === item && currentView === "dashboard"
-                    ? "1px solid #005885"
-                    : "1px solid #e1e5e9",
-              }}
-              onMouseEnter={(e) => {
-                if (!(activeTab === item && currentView === "dashboard")) {
-                  e.target.style.background = "#f8fafc";
-                  e.target.style.borderColor = "#0077b5";
-                  e.target.style.transform = "translateY(-1px)";
-                  e.target.style.boxShadow = "0 4px 12px rgba(0, 0, 0, 0.15)";
-                }
-              }}
-              onMouseLeave={(e) => {
-                if (!(activeTab === item && currentView === "dashboard")) {
-                  e.target.style.background = "#ffffff";
-                  e.target.style.borderColor = "#e1e5e9";
-                  e.target.style.transform = "translateY(0)";
-                  e.target.style.boxShadow = "0 1px 3px rgba(0, 0, 0, 0.1)";
-                }
+                ...styles.sidebarNavItem,
+                background: activeTab === item ? "#eff6ff" : "transparent",
+                color: activeTab === item ? "#1d4ed8" : "#334155",
+                borderColor: activeTab === item ? "#bfdbfe" : "transparent",
               }}
             >
-              <span style={{ fontWeight: "bold" }}>{item.toUpperCase()}</span>
-              <span style={styles.countBadge}>{getCount(item)}</span>
-            </div>
+              <span style={styles.navItemText}>
+                {item === "draft" && "Draft"}
+                {item === "saved" && "Saved"}
+                {item === "scheduled" && "Scheduled"}
+                {item === "posted" && "Posted"}
+              </span>
+              <span style={styles.navItemCount}>{getCount(item)}</span>
+            </button>
           ))}
+        </nav>
 
-          <div style={styles.listContainer}>
-            <h4 style={styles.listTitle}>Posts in {activeTab}</h4>
-            <div style={styles.list}>
-              {filteredPosts.length > 0 ? (
-                filteredPosts.map((p) => (
-                  <div
-                    key={p._id}
-                    style={{
-                      ...styles.listItem,
-                      background: selectedPost?._id === p._id ? "#0077b5" : "#f8fafc",
-                      color: selectedPost?._id === p._id ? "#ffffff" : "#1a1a1a",
-                      borderLeft:
-                        selectedPost?._id === p._id
-                          ? "4px solid #005885"
-                          : "4px solid transparent",
-                    }}
-                    onClick={() => handlePostSelect(p)}
-                    onMouseEnter={(e) => {
-                      if (selectedPost?._id !== p._id) {
-                        e.target.style.background = "#0077b5";
-                        e.target.style.color = "#ffffff";
-                        const pElement = e.target.querySelector('p');
-                        const spanElement = e.target.querySelector('span');
-                        if (pElement) pElement.style.color = "#ffffff";
-                        if (spanElement) spanElement.style.color = "#e1e5e9";
-                        e.target.style.borderLeft = "4px solid #005885";
-                        e.target.style.transform = "translateY(-1px)";
-                        e.target.style.boxShadow = "0 2px 8px rgba(0, 119, 181, 0.2)";
-                      }
-                    }}
-                    onMouseLeave={(e) => {
-                      if (selectedPost?._id !== p._id) {
-                        e.target.style.background = "#f8fafc";
-                        e.target.style.color = "#1a1a1a";
-                        const pElement = e.target.querySelector('p');
-                        const spanElement = e.target.querySelector('span');
-                        if (pElement) pElement.style.color = "#1a1a1a";
-                        if (spanElement) spanElement.style.color = "#666666";
-                        e.target.style.borderLeft = "4px solid transparent";
-                        e.target.style.transform = "translateY(0)";
-                        e.target.style.boxShadow = "none";
-                      }
-                    }}
-                  >
-                    <div style={styles.listItemContent}>
-                      <p style={{
-                        ...styles.listItemText,
-                        color: selectedPost?._id === p._id ? "#ffffff" : "#1a1a1a"
-                      }}>{p.content.slice(0, 50)}</p>
-                      <span style={{
-                        ...styles.listItemMeta,
-                        color: selectedPost?._id === p._id ? "#e1e5e9" : "#666666"
-                      }}>{p.status}</span>
-                      {p.status === "posted" && p.linkedInUrl && (
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            window.open(p.linkedInUrl, "_blank");
-                          }}
-                          style={styles.sidebarLinkButton}
-                        >
-                          Open
-                        </button>
+        {/* <div style={styles.sidebarCard}>
+          <div style={styles.sidebarCardHeader}>POSTS IN DRAFT</div>
+          <div style={styles.sidebarCardBody}>
+            {getCount("draft") === 0 ? (
+              <>
+                <div style={styles.sidebarCardEmptyIcon}>✍️</div>
+                <p style={styles.sidebarCardEmptyText}>No items in draft</p>
+              </>
+            ) : (
+              <p style={styles.sidebarCardInfo}>{getCount("draft")} draft post(s)</p>
+            )}
+          </div>
+        </div> */}
+
+        <div style={styles.sidebarFooter}>
+          <button style={styles.sidebarFooterButton}>Settings</button>
+          <button style={styles.sidebarFooterButton}>Help & Support</button>
+        </div>
+      </aside>
+
+      <main style={styles.main}>
+        <div style={styles.topBar}>
+          <div style={styles.searchWrapper}>
+            <span style={styles.searchIcon}>🔍</span>
+            <input
+              type="text"
+              placeholder="Search posts, accounts..."
+              style={styles.searchInput}
+            />
+          </div>
+          <div style={styles.topBarRight}>
+              {isConnected && (
+    <div style={styles.linkedinBox}>
+      <img
+        src={profile?.profilePicture || "https://via.placeholder.com/40"}
+        alt="LinkedIn"
+        style={styles.linkedinAvatar}
+      />
+      
+      <div>
+        <div style={styles.linkedinName}>
+          {profile?.name || "LinkedIn User"}
+        </div>
+        <div style={styles.linkedinStatus}>Connected</div>
+      </div>
+
+      <button
+        style={styles.disconnectBtn}
+        onClick={handleDisconnect}
+      >
+        Disconnect
+      </button>
+    </div>
+  )}
+            <button type="button" style={styles.notificationButton}>🔔</button>
+            <div style={styles.profileInfo} onClick={() => navigate("/profile")}> 
+              <span>{user?.name || "User"}</span>
+              <img
+                src={user?.profilePicture || profileIcon}
+                alt="User"
+                style={styles.profileAvatar}
+              />
+            </div>
+          </div>
+        </div>
+        
+        
+        <div style={styles.pageContent}>
+  {!isConnected && (
+    <div style={styles.connectCard}>
+      <div style={styles.connectCardContent}>
+        <div>
+          <p style={styles.heroLabel}>Schedular</p>
+          <h1 style={styles.heroTitle}>Connect Your Accounts</h1>
+          <p style={styles.heroDescription}>
+            Start by connecting a platform
+          </p>
+        </div>
+        <ConnectPlatforms />
+      </div>
+    </div>
+  )}
+
+         
+          {isConnected && (
+            <div style={styles.connectedArea}>
+              {currentView === "dashboard" && (
+                <div style={styles.connectedContent}>
+                  {selectedPost ? (
+                    <CreatePostLayout
+                      content={content}
+                      setContent={setContent}
+                      imageUrls={imageUrls}
+                      setImageUrls={setImageUrls}
+                      profile={profile}
+                      selectedDateTime={selectedDateTime}
+                      setSelectedDateTime={setSelectedDateTime}
+                      onSave={handleSavePost}
+                      onBack={() => {
+                        setSelectedPost(null);
+                        setCurrentView("dashboard");
+                      }}
+                      activeTab={activeTab}
+                      selectedPost={selectedPost}
+                    />
+                  ) : (
+                    <div style={styles.mainPlaceholder}>
+                      {activeTab === "draft" && (
+                        <>
+                          <h2 style={styles.sectionTitle}>Draft Posts</h2>
+                          <p style={styles.sectionDescription}>
+                            Start creating content and save it as drafts to work on later.
+                          </p>
+                          <button
+                            style={styles.createMainBtn}
+                            onClick={() => openCreateView("draft")}
+                          >
+                            Create New Draft
+                          </button>
+                        </>
                       )}
+
+                      {activeTab === "saved" && (
+                        <>
+                          <h2 style={styles.sectionTitle}>Saved Ideas</h2>
+                          <p style={styles.sectionDescription}>
+                            Store your brilliant ideas and templates for future use.
+                          </p>
+                          <button
+                            style={styles.createMainBtn}
+                            onClick={() => openCreateView("saved")}
+                          >
+                            Save New Idea
+                          </button>
+                        </>
+                      )}
+
+                      {activeTab === "scheduled" && (
+                        <>
+                          <h2 style={styles.sectionTitle}>Scheduled Posts</h2>
+                          <p style={styles.sectionDescription}>
+                            Plan and schedule your content for optimal engagement.
+                          </p>
+                          <button
+                            style={styles.createMainBtn}
+                            onClick={() => openCreateView("scheduled")}
+                          >
+                            Schedule New Post
+                          </button>
+                        </>
+                      )}
+
+                      {activeTab === "posted" && (
+                        <>
+                          <h2 style={styles.sectionTitle}>Posted Content</h2>
+                          <p style={styles.sectionDescription}>
+                            View your published posts and track performance metrics.
+                          </p>
+                        </>
+                      )}
+
                     </div>
-                  </div>
-                ))
-              ) : (
-                <p style={styles.sidebarEmptyText}>No items in {activeTab}</p>
+                    
+                  )}
+                  {filteredPosts.length > 0 && renderPostList()}
+                </div>
+              )}
+
+              {currentView === "create" && (
+                <CreatePostLayout
+                  content={content}
+                  setContent={setContent}
+                  imageUrls={imageUrls}
+                  setImageUrls={setImageUrls}
+                  profile={profile}
+                  selectedDateTime={selectedDateTime}
+                  setSelectedDateTime={setSelectedDateTime}
+                  onSave={handleSavePost}
+                  onBack={() => setCurrentView("dashboard")}
+                  activeTab={activeTab}
+                  selectedPost={selectedPost}
+                />
               )}
             </div>
-          </div>
-
-          <div onMouseDown={() => setIsResizing(true)} style={styles.resizer} />
+          )}
         </div>
-      )}
-
-      <div style={styles.main}>
-        <Header
-          user={user}
-          isConnected={isConnected}
-          onConnect={handleConnectLinkedIn}
-          onDisconnect={handleDisconnectLinkedIn}
-          onProfileClick={() => navigate("/profile")}
-          onScheduleClick={() => openCreateView("scheduled")}
-          onLogout={handleLogout}
-          isSidebarOpen={isSidebarOpen}
-        />
-
-        {!isConnected ? (
-          <ConnectPlatforms />
-        ) : (
-          <div style={styles.contentArea}>
-            {currentView === "dashboard" && (
-              <>
-                {selectedPost ? (
-                  <CreatePostLayout
-                    content={content}
-                    setContent={setContent}
-                    imageUrls={imageUrls}
-                    setImageUrls={setImageUrls}
-                    profile={profile}
-                    selectedDate={selectedDate}
-                    setSelectedDate={setSelectedDate}
-                    selectedTime={selectedSlot}
-                    setSelectedTime={setSelectedSlot}
-                    onSave={handleSavePost}
-                    onBack={() => {
-                      setSelectedPost(null);
-                      setCurrentView("dashboard");
-                    }}
-                    activeTab={activeTab}
-                    selectedPost={selectedPost}
-                  />
-                ) : (
-                  <div style={styles.mainPlaceholder}>
-                    {activeTab === "draft" && (
-                      <>
-                        <h2 style={{ color: "#1a1a1a", marginBottom: "16px", fontSize: "28px", fontWeight: "700" }}>Draft Posts</h2>
-                        <p style={{ color: "#666666", marginBottom: "24px", fontSize: "16px" }}>Start creating content and save it as drafts to work on later.</p>
-                        <button
-                          style={styles.createMainBtn}
-                          onClick={() => openCreateView("draft")}
-                        >
-                          Create New Draft
-                        </button>
-                      </>
-                    )}
-
-                    {activeTab === "saved" && (
-                      <>
-                        <h2 style={{ color: "#1a1a1a", marginBottom: "16px", fontSize: "28px", fontWeight: "700" }}>Saved Ideas</h2>
-                        <p style={{ color: "#666666", marginBottom: "24px", fontSize: "16px" }}>Store your brilliant ideas and templates for future use.</p>
-                        <button
-                          style={styles.createMainBtn}
-                          onClick={() => openCreateView("saved")}
-                        >
-                          Save New Idea
-                        </button>
-                      </>
-                    )}
-
-                    {activeTab === "scheduled" && (
-                      <>
-                        <h2 style={{ color: "#1a1a1a", marginBottom: "16px", fontSize: "28px", fontWeight: "700" }}>Scheduled Posts</h2>
-                        <p style={{ color: "#666666", marginBottom: "24px", fontSize: "16px" }}>Plan and schedule your content for optimal engagement.</p>
-                        <button
-                          style={styles.createMainBtn}
-                          onClick={() => openCreateView("scheduled")}
-                        >
-                          Schedule New Post
-                        </button>
-                      </>
-                    )}
-
-                    {activeTab === "posted" && (
-                      <>
-                        <h2 style={{ color: "#1a1a1a", marginBottom: "16px", fontSize: "28px", fontWeight: "700" }}>Posted Content</h2>
-                        <p style={{ color: "#666666", marginBottom: "24px", fontSize: "16px" }}>View your published posts and track performance metrics.</p>
-                      </>
-                    )}
-                  </div>
-                )}
-              </>
-            )}
-
-            {currentView === "create" && (
-              <CreatePostLayout
-                content={content}
-                setContent={setContent}
-                imageUrls={imageUrls}
-                setImageUrls={setImageUrls}
-                profile={profile}
-                selectedDate={selectedDate}
-                setSelectedDate={setSelectedDate}
-                selectedTime={selectedSlot}
-                setSelectedTime={setSelectedSlot}
-                onSave={handleSavePost}
-                onBack={() => setCurrentView("dashboard")}
-                activeTab={activeTab}
-                selectedPost={selectedPost}
-              />
-            )}
-          </div>
-        )}
-      </div>
+      </main>
     </div>
   );
 }
 
 const styles = {
-  container: { 
-    display: "flex", 
-    height: "100vh", 
-    background: "#f8fafc", 
-    color: "#1a1a1a", 
-    fontFamily: "Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" 
+  container: {
+    display: "flex",
+    minHeight: "100vh",
+    background: "#eef2ff",
+    color: "#0f172a",
+    fontFamily: "Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
   },
-  logoText: { 
-    margin: 0, 
-    background: "linear-gradient(90deg, #0077b5, #42a5f5)", 
-    WebkitBackgroundClip: "text", 
-    WebkitTextFillColor: "transparent",
-    fontWeight: "700",
-    fontSize: "24px"
-  },
-
-  card: { 
-    padding: "12px 15px", 
-    borderRadius: "8px", 
-    marginBottom: "10px", 
-    cursor: "pointer", 
-    display: "flex", 
-    justifyContent: "space-between", 
-    alignItems: "center",
+  sidebar: {
+    width: "280px",
     background: "#ffffff",
-    border: "1px solid #e1e5e9",
-    transition: "all 0.2s ease",
-    boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)"
+    borderRight: "1px solid #e2e8f0",
+    display: "flex",
+    flexDirection: "column",
+    padding: "28px 24px",
+    gap: "28px",
   },
-  cardHover: {
-    transform: "translateY(-1px)",
-    boxShadow: "0 4px 12px rgba(0, 0, 0, 0.15)"
-  },
-  countBadge: { 
-    background: "#0077b5", 
-    color: "#ffffff",
-    padding: "2px 8px", 
-    borderRadius: "10px", 
-    fontSize: "12px",
-    fontWeight: "600"
-  },
-  listContainer: { 
-    marginTop: "20px", 
-    padding: "15px", 
-    background: "#ffffff", 
-    borderRadius: "12px", 
-    border: "1px solid #e1e5e9",
-    boxShadow: "0 2px 4px rgba(0, 0, 0, 0.05)"
-  },
-  listTitle: { 
-    margin: "0 0 12px 0", 
-    color: "#666666", 
-    fontSize: "12px", 
-    fontWeight: "600", 
-    textTransform: "uppercase", 
-    letterSpacing: "0.5px" 
-  },
-  list: { 
-    display: "flex", 
-    flexDirection: "column", 
-    gap: "8px", 
-    overflowY: "auto", 
-    maxHeight: "45vh" 
-  },
-  sidebarLink: {
-    marginTop: "8px",
-    display: "inline-block",
-    color: "#0a66c2",
-    textDecoration: "underline",
-    fontSize: "12px",
-  },
-  sidebarLinkButton: {
-    marginTop: "8px",
-    padding: "6px 10px",
-    borderRadius: "18px",
-    border: "1px solid #0a66c2",
-    background: "#ffffff",
-    color: "#0a66c2",
-    fontSize: "12px",
-    cursor: "pointer",
-    alignSelf: "flex-start",
-  },
-  listItem: { 
-    padding: "12px 14px", 
-    background: "#f8fafc", 
-    borderRadius: "8px", 
-    cursor: "pointer", 
-    fontSize: "13px", 
-    border: "1px solid #e1e5e9", 
-    transition: "all 0.2s ease", 
-    display: "flex", 
-    alignItems: "center" 
-  },
-  listItemContent: { 
-    flex: 1, 
-    display: "flex", 
-    flexDirection: "column", 
-    gap: "4px" 
-  },
-  listItemText: { 
-    margin: 0, 
-    color: "#1a1a1a", 
-    fontSize: "13px", 
-    lineHeight: "1.4", 
-    wordBreak: "break-word" 
-  },
-  listItemMeta: { 
-    fontSize: "10px", 
-    color: "#666666", 
-    textTransform: "capitalize" 
-  },
-  sidebarEmptyText: { 
-    textAlign: "center", 
-    color: "#999999", 
-    fontSize: "12px", 
-    marginTop: "20px", 
-    fontStyle: "italic" 
-  },
-
-  main: { 
-    flex: 1, 
-    padding: "30px", 
-    display: "flex", 
-    flexDirection: "column", 
-    overflowY: "auto" 
-  },
-  header: { 
-    display: "flex", 
-    justifyContent: "space-between", 
-    alignItems: "center", 
-    marginBottom: "30px",
-    padding: "20px 0",
-    borderBottom: "1px solid #e1e5e9"
-  },
-  createBtn: { 
-    background: "#0077b5", 
-    padding: "10px 20px", 
-    borderRadius: "8px", 
-    border: "none", 
-    color: "#ffffff", 
-    cursor: "pointer", 
-    fontWeight: "600", 
-    boxShadow: "0 2px 4px rgba(0, 119, 181, 0.2)",
-    transition: "all 0.2s ease"
-  },
-  createBtnHover: {
-    background: "#005885",
-    transform: "translateY(-1px)",
-    boxShadow: "0 4px 8px rgba(0, 119, 181, 0.3)"
-  },
-  createMainBtn: { 
-    marginTop: "20px", 
-    background: "#0077b5", 
-    padding: "12px 24px", 
-    borderRadius: "8px", 
-    border: "none", 
-    color: "#ffffff", 
-    cursor: "pointer", 
-    fontWeight: "600", 
-    fontSize: "16px",
-    boxShadow: "0 2px 4px rgba(0, 119, 181, 0.2)",
-    transition: "all 0.2s ease"
-  },
-  createMainBtnHover: {
-    background: "#005885",
-    transform: "translateY(-1px)",
-    boxShadow: "0 4px 8px rgba(0, 119, 181, 0.3)"
-  },
-  contentArea: { flex: 1 },
-
-  mainPlaceholder: { 
-    textAlign: "center", 
-    marginTop: "100px", 
-    color: "#666666",
-    maxWidth: "500px",
-    margin: "100px auto"
-  },
-
-  leftPanel: { 
-    padding: "20px", 
-    borderRight: "1px solid #e1e5e9", 
-    position: "relative",
-    background: "#ffffff"
-  },
-  sidebarHeader: { 
-    display: "flex", 
-    alignItems: "center", 
-    gap: "12px", 
-    marginBottom: "20px" 
-  },
-  menuBtn: { 
-    background: "#0077b5", 
-    border: "none", 
-    borderRadius: "8px", 
-    width: "40px", 
-    height: "40px", 
-    cursor: "pointer", 
-    color: "#ffffff",
+  sidebarLogoSection: {
     display: "flex",
     alignItems: "center",
-    justifyContent: "center",
-    fontSize: "18px"
+    gap: "14px",
   },
-  resizer: { 
-    position: "absolute", 
-    top: 0, 
-    right: 0, 
-    width: "5px", 
-    height: "100%", 
-    cursor: "col-resize" 
+  sidebarLogo: {
+    width: "48px",
+    height: "48px",
+    borderRadius: "16px",
+    background: "linear-gradient(135deg, #0369a1, #60a5fa)",
+    display: "grid",
+    placeItems: "center",
+    color: "#ffffff",
+    fontSize: "22px",
+    fontWeight: 800,
   },
-  headerRight: { 
-    display: "flex", 
-    gap: "15px", 
-    alignItems: "center" 
+  sidebarTitle: {
+    margin: 0,
+    fontSize: "22px",
+    fontWeight: 800,
+    letterSpacing: "-0.02em",
   },
-  appUserBox: {
+  sidebarSubtitle: {
+    margin: "4px 0 0",
+    color: "#64748b",
+    fontSize: "13px",
+  },
+  sidebarNav: {
     display: "flex",
+    flexDirection: "column",
+    gap: "10px",
+  },
+  sidebarCreateButton: {
+    display: "inline-flex",
     alignItems: "center",
     gap: "10px",
-    padding: "8px 12px",
-    borderRadius: "12px",
-    background: "#ffffff",
-    border: "1px solid #e1e5e9",
-    cursor: "pointer",
-    transition: "all 0.2s ease",
-    boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)"
-  },
-  appUserBoxHover: {
-    borderColor: "#0077b5",
-    boxShadow: "0 2px 8px rgba(0, 119, 181, 0.2)"
-  },
-  profileBox: { 
-    display: "flex", 
-    alignItems: "center", 
-    gap: "10px" 
-  },
-  profileImg: { 
-    width: "35px", 
-    height: "35px", 
-    borderRadius: "50%",
-    objectFit: "cover",
-    border: "2px solid #0077b5"
-  },
-  profileLink: {
-    textDecoration: "none",
-    color: "#1a1a1a",
-    border: "1px solid #e1e5e9",
-    padding: "10px 16px",
-    borderRadius: "8px",
-    background: "#ffffff",
-    fontWeight: "500",
-    transition: "all 0.2s ease"
-  },
-  logoutBtn: {
-    background: "#dc2626",
-    padding: "10px 16px",
-    borderRadius: "8px",
-    color: "#ffffff",
+    width: "100%",
+    borderRadius: "18px",
     border: "none",
-    cursor: "pointer",
-    fontWeight: "600",
-    transition: "all 0.2s ease"
-  },
-  logoutBtnHover: {
-    background: "#b91c1c",
-    transform: "translateY(-1px)",
-    boxShadow: "0 2px 4px rgba(220, 38, 38, 0.3)"
-  },
-  profileHeader: { 
-    display: "flex", 
-    alignItems: "center", 
-    gap: "12px", 
-    padding: "12px", 
-    background: "#f8fafc", 
-    borderRadius: "10px", 
-    border: "1px solid #e1e5e9", 
-    marginBottom: "12px" 
-  },
-  profileHeaderImg: { 
-    width: "46px", 
-    height: "46px", 
-    borderRadius: "50%", 
-    objectFit: "cover", 
-    border: "2px solid #0077b5" 
-  },
-  disconnectBtn: { 
-    background: "#ef4444", 
-    padding: "8px 12px", 
-    borderRadius: "8px", 
-    color: "#ffffff", 
-    border: "none", 
-    cursor: "pointer", 
-    fontSize: "13px",
-    fontWeight: "500",
-    transition: "all 0.2s ease"
-  },
-  disconnectBtnHover: {
-    background: "#dc2626",
-    transform: "translateY(-1px)"
-  },
-  floatingToggle: { 
-    position: "fixed", 
-    top: "20px", 
-    left: "20px", 
-    zIndex: 1000, 
-    background: "#0077b5", 
-    border: "none", 
-    borderRadius: "8px", 
-    width: "48px", 
-    height: "48px", 
-    cursor: "pointer", 
+    padding: "14px 18px",
+    background: "#2563eb",
     color: "#ffffff",
-    display: "flex",
+    fontWeight: 700,
+    fontSize: "14px",
+    cursor: "pointer",
+    boxShadow: "0 16px 40px rgba(37, 99, 235, 0.18)",
+  },
+  createIcon: {
+    width: "26px",
+    height: "26px",
+    display: "inline-flex",
     alignItems: "center",
     justifyContent: "center",
+    borderRadius: "10px",
+    background: "rgba(255,255,255,0.18)",
     fontSize: "18px",
-    boxShadow: "0 2px 8px rgba(0, 119, 181, 0.3)"
   },
+  sidebarSectionTitle: {
+    marginTop: "22px",
+    marginBottom: "10px",
+    color: "#64748b",
+    fontSize: "12px",
+    fontWeight: 700,
+    letterSpacing: "0.18em",
+    textTransform: "uppercase",
+  },
+  sidebarNavItem: {
+    width: "100%",
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    padding: "14px 18px",
+    borderRadius: "18px",
+    border: "1px solid transparent",
+    background: "transparent",
+    color: "#0f172a",
+    cursor: "pointer",
+    fontSize: "15px",
+    fontWeight: 600,
+    transition: "all 0.2s ease",
+    textAlign: "left",
+  },
+  navItemText: {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: "10px",
+  },
+  navItemCount: {
+    minWidth: "28px",
+    height: "28px",
+    borderRadius: "999px",
+    background: "#e0f2fe",
+    color: "#0369a1",
+    display: "grid",
+    placeItems: "center",
+    fontSize: "12px",
+    fontWeight: 700,
+  },
+  sidebarCard: {
+    marginTop: "22px",
+    borderRadius: "22px",
+    border: "1px solid #e2e8f0",
+    background: "#ffffff",
+    padding: "20px",
+  },
+  sidebarCardHeader: {
+    margin: 0,
+    marginBottom: "16px",
+    fontSize: "12px",
+    fontWeight: 700,
+    letterSpacing: "0.12em",
+    color: "#334155",
+  },
+  sidebarCardBody: {
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: "14px",
+    padding: "18px 8px",
+    minHeight: "120px",
+    background: "#f8fafc",
+    borderRadius: "18px",
+  },
+  sidebarCardEmptyIcon: {
+    fontSize: "32px",
+  },
+  sidebarCardEmptyText: {
+    margin: 0,
+    color: "#64748b",
+    fontSize: "14px",
+  },
+  sidebarCardInfo: {
+    margin: 0,
+    color: "#0f172a",
+    fontSize: "14px",
+    fontWeight: 700,
+  },
+  sidebarFooter: {
+    marginTop: "auto",
+    display: "flex",
+    flexDirection: "column",
+    gap: "12px",
+  },
+  sidebarFooterButton: {
+    width: "100%",
+    textAlign: "left",
+    padding: "14px 16px",
+    borderRadius: "16px",
+    border: "1px solid #e2e8f0",
+    background: "#f8fafc",
+    color: "#0f172a",
+    cursor: "pointer",
+    fontWeight: 600,
+    transition: "background 0.2s ease",
+  },
+  main: {
+    flex: 1,
+    display: "flex",
+    flexDirection: "column",
+    padding: "32px",
+    gap: "28px",
+  },
+  topBar: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    gap: "18px",
+  },
+  breadcrumb: {
+    margin: 0,
+    color: "#475569",
+    textTransform: "uppercase",
+    letterSpacing: "0.15em",
+    fontSize: "12px",
+    fontWeight: 700,
+  },
+  pageTitle: {
+    margin: "8px 0 0",
+    fontSize: "36px",
+    lineHeight: 1.05,
+    fontWeight: 800,
+    color: "#0f172a",
+  },
+  topBarRight: {
+    display: "flex",
+    alignItems: "center",
+    gap: "16px",
+  },
+  searchWrapper: {
+    display: "flex",
+    alignItems: "center",
+    width: "100%",
+    maxWidth: "520px",
+    background: "#ffffff",
+    border: "1px solid #e2e8f0",
+    borderRadius: "16px",
+    padding: "8px 16px",
+    gap: "10px",
+    boxShadow: "0 5px 20px rgba(15, 23, 42, 0.06)",
+  },
+  searchIcon: {
+    fontSize: "18px",
+    color: "#94a3b8",
+  },
+  searchInput: {
+    width: "100%",
+    padding: "14px 0",
+    border: "none",
+    background: "transparent",
+    color: "#0f172a",
+    fontSize: "14px",
+    outline: "none",
+  },
+  notificationButton: {
+    width: "48px",
+    height: "48px",
+    borderRadius: "16px",
+    border: "1px solid #e2e8f0",
+    background: "#ffffff",
+    color: "#334155",
+    cursor: "pointer",
+    fontSize: "18px",
+    display: "grid",
+    placeItems: "center",
+  },
+  profileInfo: {
+    display: "flex",
+    alignItems: "center",
+    gap: "12px",
+    padding: "12px 16px",
+    borderRadius: "16px",
+    background: "#ffffff",
+    border: "1px solid #e2e8f0",
+    cursor: "pointer",
+    fontWeight: 600,
+    color: "#0f172a",
+  },
+  profileAvatar: {
+    width: "42px",
+    height: "42px",
+    borderRadius: "50%",
+    objectFit: "cover",
+    border: "2px solid #60a5fa",
+  },
+  pageContent: {
+    display: "grid",
+    gap: "24px",
+  },
+  heroCard: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    gap: "24px",
+    padding: "32px",
+    background: "#ffffff",
+    borderRadius: "28px",
+    boxShadow: "0 30px 80px rgba(15, 23, 42, 0.08)",
+  },
+  heroText: {
+    maxWidth: "720px",
+  },
+  heroLabel: {
+    margin: 0,
+    color: "#2563eb",
+    fontSize: "13px",
+    fontWeight: 700,
+    letterSpacing: "0.15em",
+    textTransform: "uppercase",
+    marginBottom: "12px",
+  },
+  heroTitle: {
+    margin: 0,
+    fontSize: "42px",
+    lineHeight: 1.05,
+    fontWeight: 800,
+    color: "#0f172a",
+  },
+  heroDescription: {
+    margin: "18px 0 0",
+    color: "#475569",
+    fontSize: "16px",
+    lineHeight: 1.7,
+    maxWidth: "640px",
+  },
+  quickActions: {
+    display: "flex",
+    alignItems: "center",
+    gap: "12px",
+  },
+  actionButton: {
+    padding: "14px 24px",
+    borderRadius: "16px",
+    border: "none",
+    background: "#0369a1",
+    color: "#ffffff",
+    fontWeight: 700,
+    cursor: "pointer",
+    boxShadow: "0 12px 24px rgba(3, 105, 161, 0.16)",
+  },
+  connectCard: {
+    background: "#ffffff",
+    borderRadius: "32px",
+    padding: "32px",
+    boxShadow: "0 30px 80px rgba(15, 23, 42, 0.08)",
+  },
+  connectCardContent: {
+    display: "grid",
+    gap: "32px",
+  },
+  connectSection: {
+    padding: "28px",
+    borderRadius: "28px",
+    background: "#ffffff",
+    boxShadow: "0 24px 60px rgba(15, 23, 42, 0.08)",
+  },
+  connectedArea: {
+    display: "grid",
+    gap: "24px",
+  },
+  connectedContent: {
+    background: "#ffffff",
+    borderRadius: "28px",
+    boxShadow: "0 24px 60px rgba(15, 23, 42, 0.08)",
+    padding: "28px",
+  },
+  mainPlaceholder: {
+    textAlign: "center",
+    margin: "24px auto",
+    color: "#475569",
+    maxWidth: "620px",
+  },
+  sectionTitle: {
+    margin: "0 0 16px",
+    fontSize: "28px",
+    fontWeight: 700,
+    color: "#0f172a",
+  },
+  sectionDescription: {
+    margin: "0 0 24px",
+    color: "#64748b",
+    fontSize: "16px",
+    lineHeight: 1.8,
+  },
+  createMainBtn: {
+    marginTop: "20px",
+    background: "#0077b5",
+    padding: "14px 24px",
+    borderRadius: "16px",
+    border: "none",
+    color: "#ffffff",
+    cursor: "pointer",
+    fontWeight: 700,
+    fontSize: "15px",
+    boxShadow: "0 14px 32px rgba(0, 119, 181, 0.18)",
+  },
+  linkedinBox: {
+  display: "flex",
+  alignItems: "center",
+  gap: "12px",
+  background: "#f0f9ff",
+  border: "1px solid #bae6fd",
+  padding: "8px 14px",
+  borderRadius: "14px",
+},
+
+linkedinAvatar: {
+  width: "36px",
+  height: "36px",
+  borderRadius: "50%",
+},
+
+linkedinName: {
+  fontSize: "14px",
+  fontWeight: "600",
+},
+
+linkedinStatus: {
+  fontSize: "12px",
+  color: "#16a34a",
+  fontWeight: "600",
+},
+
+disconnectBtn: {
+  marginLeft: "10px",
+  background: "#ef4444",
+  color: "#fff",
+  border: "none",
+  borderRadius: "10px",
+  padding: "6px 10px",
+  cursor: "pointer",
+  fontSize: "12px",
+  fontWeight: "600",
+},
 };

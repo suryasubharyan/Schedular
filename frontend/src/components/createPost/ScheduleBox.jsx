@@ -1,167 +1,168 @@
-import { useEffect, useState } from "react";
-import { getAvailabilityAPI } from "../../api/availability.api";
-
-const timeSlots = [
-  "09:00 AM",
-  "09:30 AM",
-  "10:00 AM",
-  "10:30 AM",
-  "11:00 AM",
-  "11:30 AM",
-  "12:00 PM",
-  "12:30 PM",
-  "01:00 PM",
-  "01:30 PM",
-  "02:00 PM",
-  "02:30 PM",
-];
+import DatePicker from "react-datepicker";
+import "react-datepicker/dist/react-datepicker.css";
 
 export default function ScheduleBox({
-  selectedDate,
-  setSelectedDate,
-  selectedTime,
-  setSelectedTime,
-  onSchedule,
-  existingSlot,
+  selectedDateTime,
+  setSelectedDateTime,
 }) {
-  const [bookedSlots, setBookedSlots] = useState([]);
-  const [loading, setLoading] = useState(false);
-
-  useEffect(() => {
-    if (!selectedDate) {
-      setBookedSlots([]);
-      return;
-    }
-
-    setLoading(true);
-
-    getAvailabilityAPI(selectedDate)
-      .then((res) => {
-        setBookedSlots(res.data.bookedSlots || []);
-      })
-      .catch(() => {
-        setBookedSlots([]);
-      })
-      .finally(() => {
-        setLoading(false);
-      });
-  }, [selectedDate, existingSlot]);
-
   return (
-    <div style={styles.container}>
-      <input
-        type="date"
-        value={selectedDate}
-        onChange={(e) => {
-          setSelectedDate(e.target.value);
-          setSelectedTime(null);
-        }}
-        style={styles.dateInput}
-      />
+    <>
+      <div style={styles.container}>
+        <label style={styles.label}>Select Date & Time</label>
 
-      <div style={styles.grid}>
-        {timeSlots.map((slot) => {
-          const isExisting = existingSlot === slot;
-          const isBooked = bookedSlots.includes(slot) && !isExisting;
-          const isSelected = selectedTime === slot;
+        <div style={styles.inputWrapper}>
+          <DatePicker
+            selected={selectedDateTime}
+            onChange={(date) => setSelectedDateTime(date)}
+            showTimeSelect
+            timeIntervals={15}
+            timeCaption="Time"
+            dateFormat="MMM d, yyyy h:mm aa"
+            minDate={new Date()}
+            minTime={
+              selectedDateTime?.toDateString() === new Date().toDateString()
+                ? new Date()
+                : new Date().setHours(0, 0)
+            }
+            maxTime={new Date().setHours(23, 59)}
+            placeholderText="Select schedule time"
 
-          return (
-            <div
-              key={slot}
-              onClick={() => !isBooked && setSelectedTime(slot)}
-              style={{
-                ...styles.slot,
-                background: isBooked
-                  ? "#fee2e2"
-                  : isSelected
-                  ? "#0A66C2"
-                  : isExisting
-                  ? "#ede9fe"
-                  : "#e7f3ff",
-                color: isBooked
-                  ? "#b91c1c"
-                  : isSelected
-                  ? "#fff"
-                  : isExisting
-                  ? "#6d28d9"
-                  : "#0A66C2",
-                border: isSelected
-                  ? "2px solid #0A66C2"
-                  : isExisting
-                  ? "2px dashed #6d28d9"
-                  : "1px solid #d1d5db",
-                cursor: isBooked ? "not-allowed" : "pointer",
-                opacity: loading ? 0.6 : 1,
-              }}
-            >
-              {slot}
-
-              {isBooked && <div style={styles.bookedTag}>Booked</div>}
-
-              {isExisting && !isSelected && !isBooked && (
-                <div style={{ ...styles.bookedTag, color: "#6d28d9" }}>
-                  Scheduled
-                </div>
-              )}
-            </div>
-          );
-        })}
+            customInput={<CustomInput />}
+            popperClassName="custom-popper"
+            calendarClassName="custom-calendar"
+          />
+        </div>
       </div>
 
-      <button
-        style={styles.scheduleBtn}
-        onClick={onSchedule}
-        disabled={!selectedDate || !selectedTime}
-      >
-        {loading ? "Loading..." : "Schedule Post"}
-      </button>
+      {/* 🔥 STYLE FIX HERE */}
+      <style>
+        {`
+        .custom-calendar {
+          border-radius: 16px !important;
+          border: 1px solid #e5e7eb !important;
+          box-shadow: 0 10px 30px rgba(0,0,0,0.1) !important;
+          overflow: hidden;
+          font-family: sans-serif;
+        }
+
+        .custom-calendar .react-datepicker__header {
+          background: #f8fafc;
+          border-bottom: 1px solid #e5e7eb;
+          padding: 12px;
+        }
+
+        .custom-calendar .react-datepicker__current-month {
+          font-weight: 600;
+          font-size: 14px;
+        }
+
+        .custom-calendar .react-datepicker__day-name {
+          color: #6b7280;
+          font-size: 12px;
+        }
+
+        .custom-calendar .react-datepicker__day {
+          border-radius: 8px;
+          transition: 0.2s;
+        }
+
+        .custom-calendar .react-datepicker__day:hover {
+          background: #e0f2fe;
+        }
+
+        .custom-calendar .react-datepicker__day--selected {
+          background: #0A66C2 !important;
+          color: white;
+        }
+
+        .custom-calendar .react-datepicker__day--today {
+          font-weight: bold;
+        }
+
+        .custom-calendar .react-datepicker__time-container {
+          border-left: 1px solid #e5e7eb;
+        }
+
+        .custom-calendar .react-datepicker__time-list-item {
+          padding: 10px;
+          transition: 0.2s;
+        }
+
+        .custom-calendar .react-datepicker__time-list-item:hover {
+          background: #e0f2fe;
+        }
+
+        .custom-calendar .react-datepicker__time-list-item--selected {
+          background: #0A66C2 !important;
+          color: white;
+        }
+
+        .custom-calendar .react-datepicker__triangle {
+          display: none;
+        }
+        `}
+      </style>
+    </>
+  );
+}
+
+/* CUSTOM INPUT */
+function CustomInput({ value, onClick }) {
+  return (
+    <div style={styles.inputBox} onClick={onClick}>
+      <span style={value ? styles.valueText : styles.placeholder}>
+        {value || "Select schedule time"}
+      </span>
+      <span style={styles.icon}>📅</span>
     </div>
   );
 }
 
 const styles = {
   container: {
-    background: "#fff",
-    padding: "16px",
+    background: "#ffffff",
+    padding: "20px",
+    borderRadius: "18px",
+    border: "1px solid #e5e7eb",
+    boxShadow: "0 6px 20px rgba(0,0,0,0.05)",
+  },
+
+  label: {
+    fontWeight: "600",
+    marginBottom: "12px",
+    display: "block",
+    fontSize: "15px",
+    color: "#111827",
+  },
+
+  inputWrapper: {
+    width: "100%",
+  },
+
+  inputBox: {
+    width: "100%",
+    padding: "12px 14px",
     borderRadius: "12px",
     border: "1px solid #e5e7eb",
-  },
-  dateInput: {
-    width: "100%",
-    padding: "10px",
-    marginBottom: "12px",
-    borderRadius: "8px",
-    border: "1px solid #d1d5db",
-  },
-  grid: {
-    display: "grid",
-    gridTemplateColumns: "repeat(3, 1fr)",
-    gap: "10px",
-    marginBottom: "15px",
-  },
-  slot: {
-    padding: "10px",
-    borderRadius: "10px",
-    textAlign: "center",
-    fontSize: "13px",
-    fontWeight: "500",
-    position: "relative",
-    transition: "0.2s",
-  },
-  bookedTag: {
-    fontSize: "10px",
-    position: "absolute",
-    bottom: "2px",
-    right: "5px",
-  },
-  scheduleBtn: {
-    width: "100%",
-    background: "#0A66C2",
-    color: "#fff",
-    padding: "12px",
-    border: "none",
-    borderRadius: "25px",
-    fontWeight: "600",
+    background: "#f9fafb",
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
     cursor: "pointer",
+  },
+
+  valueText: {
+    fontSize: "14px",
+    color: "#111827",
+  },
+
+  placeholder: {
+    fontSize: "14px",
+    color: "#9ca3af",
+  },
+
+  icon: {
+    fontSize: "16px",
+    opacity: 0.7,
   },
 };

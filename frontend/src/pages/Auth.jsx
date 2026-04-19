@@ -1,6 +1,5 @@
 import { useContext, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { googleLogin, login, register } from "../api/auth.api";
 import { AuthContext } from "../context/AuthContext";
 import { useNotification } from "../context/NotificationContext";
 
@@ -14,7 +13,7 @@ export default function Auth() {
   const [loading, setLoading] = useState(false);
   const googleButtonRef = useRef(null);
 
-  const { user, authReady, loginUser } = useContext(AuthContext);
+  const { user, authReady, login, register, googleLogin } = useContext(AuthContext);
   const { showError, showSuccess } = useNotification();
   const navigate = useNavigate();
 
@@ -46,12 +45,11 @@ export default function Auth() {
           setLoading(true);
 
           try {
-            const res = await googleLogin(response.credential);
-            loginUser(res.data.token, res.data.user);
+            await googleLogin(response.credential);
             showSuccess("Successfully logged in with Google!");
             navigate("/dashboard");
           } catch (error) {
-            showError(error.response?.data?.error || "Google login failed");
+            showError(getErrorMessage(error));
           } finally {
             setLoading(false);
           }
@@ -86,7 +84,19 @@ export default function Auth() {
     return () => {
       isMounted = false;
     };
-  }, [loginUser, navigate]);
+  }, [googleLogin, navigate]);
+
+  const getErrorMessage = (error) => {
+    if (!error) return "Something went wrong";
+
+    const response = error.response?.data;
+    if (response) {
+      if (typeof response === "string") return response;
+      return response.error || response.message || JSON.stringify(response);
+    }
+
+    return error.message || "Something went wrong";
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -99,24 +109,18 @@ export default function Auth() {
     setLoading(true);
 
     try {
-      const res = isLogin
-        ? await login({ email, password })
-        : await register({ email, password, name });
-
-      if (res.data.success) {
-        loginUser(res.data.token, res.data.user);
-        showSuccess(isLogin ? "Login successful!" : "Account created successfully!");
+      if (isLogin) {
+        await login(email, password);
+        showSuccess("Login successful!");
         navigate("/dashboard");
       } else {
-        showError(res.data.message || "Something went wrong");
+        await register(email, password, name);
+        showSuccess("Account created successfully. Please login.");
+        setIsLogin(true);
+        setPassword("");
       }
     } catch (err) {
-      const message =
-        err.response?.data?.error ||
-        err.response?.data?.message ||
-        err.message;
-
-      showError(message);
+      showError(getErrorMessage(err));
     } finally {
       setLoading(false);
     }

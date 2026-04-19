@@ -1,23 +1,20 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import PostEditor from "./PostEditor";
 import PostPreview from "./PostPreview";
-import ScheduleBox from "./ScheduleBox";
+import ScheduleBox from "./ScheduleBox"; // 🔥 NEW
 
 export default function CreatePostLayout({
-  content,
-  setContent,
-  imageUrls,
-  setImageUrls,
+  content, setContent,
+  imageUrls, setImageUrls,
   profile,
-  selectedDate,
-  setSelectedDate,
-  selectedTime,
-  setSelectedTime,
-  onSave,
-  onBack,
+  onSave, onBack,
   activeTab,
   selectedPost,
+  selectedDateTime, setSelectedDateTime, // 🔥 NEW
 }) {
+  const [showReschedule, setShowReschedule] = useState(false);
+  
+
   const isDraft = activeTab === "draft";
   const isSaved = activeTab === "saved";
   const isScheduled = activeTab === "scheduled";
@@ -26,46 +23,58 @@ export default function CreatePostLayout({
   useEffect(() => {
     if (selectedPost?._id) {
       setContent(selectedPost.content || "");
-      setImageUrls(Array.isArray(selectedPost.imageUrls)
-        ? selectedPost.imageUrls
-        : selectedPost.imageUrl
-        ? [selectedPost.imageUrl]
-        : []);
-      setSelectedDate(selectedPost.scheduledDate || "");
-      setSelectedTime(selectedPost.scheduledSlot || "");
+      setImageUrls(selectedPost.imageUrls || []);
+
+      // 🔥 scheduled case
+      if (selectedPost.scheduledDate && selectedPost.scheduledSlot) {
+        const combined = new Date(
+          `${selectedPost.scheduledDate}T${selectedPost.scheduledSlot}`
+        );
+        if (!isNaN(combined)) setSelectedDateTime(combined);
+      }
     }
-  }, [selectedPost?._id, selectedPost?.imageUrls, selectedPost?.imageUrl, setContent, setImageUrls, setSelectedDate, setSelectedTime]);
+  }, [selectedPost?._id]);
+
+  // 🔥 MAIN SCHEDULE FUNCTION
+  const handleSchedule = () => {
+    if (!selectedDateTime) return;
+
+    const date = selectedDateTime.toLocaleDateString("en-CA"); // ✅ YYYY-MM-DD
+  const time = selectedDateTime.toTimeString().slice(0, 5);
+
+    onSave("scheduled", {
+      scheduledDate: date,
+      scheduledSlot: time,
+    });
+  };
 
   return (
     <div style={styles.wrapper}>
+      
+      {/* LEFT */}
       <div style={styles.left}>
-        <button onClick={onBack} style={styles.backBtn}>
-          Back
-        </button>
+        <button onClick={onBack} style={styles.backBtn}>← Back</button>
 
         {(isDraft || isSaved || isScheduled) && (
           <PostEditor
-            content={content}
-            setContent={setContent}
-            imageUrls={imageUrls}
-            setImageUrls={setImageUrls}
-            profile={profile}
+            {...{ content, setContent, imageUrls, setImageUrls, profile }}
           />
         )}
 
-        {isPosted && <PostPreview post={selectedPost} profile={profile} />}
+        {isPosted && (
+          <PostPreview post={selectedPost} profile={profile} />
+        )}
       </div>
 
+      {/* RIGHT */}
       <div style={styles.right}>
+
+        {/* 📝 DRAFT / SAVED */}
         {(isDraft || isSaved) && (
           <>
             <ScheduleBox
-              selectedDate={selectedDate}
-              setSelectedDate={setSelectedDate}
-              selectedTime={selectedTime}
-              setSelectedTime={setSelectedTime}
-              onSchedule={() => onSave("scheduled")}
-              existingSlot={selectedPost?.scheduledSlot}
+              selectedDateTime={selectedDateTime}
+              setSelectedDateTime={setSelectedDateTime}
             />
 
             <div style={styles.actions}>
@@ -78,15 +87,6 @@ export default function CreatePostLayout({
                 </button>
               )}
 
-              {isSaved && (
-                <button
-                  style={styles.secondaryBtn}
-                  onClick={() => onSave("saved")}
-                >
-                  Update Saved
-                </button>
-              )}
-
               <button
                 style={styles.primaryBtn}
                 onClick={() => onSave("posted")}
@@ -96,7 +96,8 @@ export default function CreatePostLayout({
 
               <button
                 style={styles.primaryBtn}
-                onClick={() => onSave("scheduled")}
+                onClick={handleSchedule}
+                disabled={!selectedDateTime}
               >
                 Schedule
               </button>
@@ -104,67 +105,60 @@ export default function CreatePostLayout({
           </>
         )}
 
+        {/* ⏰ SCHEDULED */}
         {isScheduled && (
           <>
             <div style={styles.infoBox}>
-              {selectedPost?.scheduledDate || "Not set"} at{" "}
-              {selectedPost?.scheduledSlot || "Not set"}
+              Scheduled on{" "}
+              <strong>
+                {selectedPost?.scheduledDate} at {selectedPost?.scheduledSlot}
+              </strong>
             </div>
 
-            <ScheduleBox
-              selectedDate={selectedDate}
-              setSelectedDate={setSelectedDate}
-              selectedTime={selectedTime}
-              setSelectedTime={setSelectedTime}
-              onSchedule={() => onSave("scheduled")}
-              existingSlot={selectedPost?.scheduledSlot}
-            />
+            {!showReschedule && (
+              <div style={styles.actions}>
+                <button
+                  style={styles.secondaryBtn}
+                  onClick={() => setShowReschedule(true)}
+                >
+                  Reschedule
+                </button>
 
-            <div style={styles.actions}>
-              <button
-                style={styles.secondaryBtn}
-                onClick={() => onSave("scheduled")}
-              >
-                Reschedule
-              </button>
+                <button
+                  style={styles.dangerBtn}
+                  onClick={() => onSave("draft")}
+                >
+                  Cancel
+                </button>
+              </div>
+            )}
 
-              <button
-                style={styles.dangerBtn}
-                onClick={() => onSave("deleted")}
-              >
-                Cancel
-              </button>
+            {showReschedule && (
+              <>
+                <ScheduleBox
+                  selectedDateTime={selectedDateTime}
+                  setSelectedDateTime={setSelectedDateTime}
+                />
 
-              <button
-                style={styles.primaryBtn}
-                onClick={() => onSave("posted")}
-              >
-                Post Now
-              </button>
-            </div>
+                <button
+                  style={styles.primaryBtn}
+                  onClick={handleSchedule}
+                >
+                  Confirm Reschedule
+                </button>
+              </>
+            )}
           </>
         )}
 
+        {/* 🚀 POSTED */}
         {isPosted && (
-          selectedPost?.linkedInUrl ? (
-            <button
-              type="button"
-              onClick={() => window.open(selectedPost.linkedInUrl, "_blank")}
-              style={{
-                ...styles.primaryBtn,
-                textDecoration: "none",
-                display: "inline-flex",
-                justifyContent: "center",
-                alignItems: "center",
-              }}
-            >
-              View on LinkedIn
-            </button>
-          ) : (
-            <button style={{ ...styles.primaryBtn, opacity: 0.75, cursor: "default" }} disabled>
-              Posted on LinkedIn
-            </button>
-          )
+          <button
+            style={styles.primaryBtn}
+            onClick={() => window.open(selectedPost?.linkedInUrl)}
+          >
+            View on LinkedIn
+          </button>
         )}
       </div>
     </div>
@@ -172,66 +166,74 @@ export default function CreatePostLayout({
 }
 
 const styles = {
-  wrapper: {
-    display: "flex",
-    gap: "20px",
-    background: "#f3f2ef",
-    padding: "20px",
-    minHeight: "90vh",
-    boxSizing: "border-box",
-  },
-  left: {
-    flex: 2,
-    display: "flex",
-    flexDirection: "column",
-    gap: "15px",
-  },
-  right: {
-    flex: 1,
-    display: "flex",
-    flexDirection: "column",
-    padding: "48px 0px",
-    gap: "15px",
-  },
+wrapper: {
+  display: "flex",
+  gap: "24px",
+  padding: "24px",
+  height: "100vh",              // 🔥 full screen height
+  boxSizing: "border-box",
+},
+
+left: {
+  flex: 3,                     // 🔥 more space
+  display: "flex",
+  flexDirection: "column",
+},
+
+right: {
+  flex: 1.2,
+  display: "flex",
+  flexDirection: "column",
+  gap: "16px",
+  minWidth: "320px",
+},
+
   backBtn: {
-    background: "#fff",
-    border: "1px solid #d1d5db",
-    padding: "8px 14px",
-    borderRadius: "20px",
+    marginBottom: "10px",
+    padding: "6px 10px",
+    borderRadius: "8px",
+    border: "1px solid #ccc",
     cursor: "pointer",
   },
+
   actions: {
     display: "flex",
     gap: "10px",
     flexWrap: "wrap",
   },
+
   primaryBtn: {
-    background: "#0a66c2",
+    background: "#0A66C2",
     color: "#fff",
     border: "none",
-    padding: "10px 16px",
-    borderRadius: "20px",
+    padding: "10px 14px",
+    borderRadius: "10px",
+    cursor: "pointer",
     fontWeight: "600",
+  },
+
+  secondaryBtn: {
+    background: "#f1f5f9",
+    border: "1px solid #d1d5db",
+    padding: "10px 14px",
+    borderRadius: "10px",
     cursor: "pointer",
   },
-  secondaryBtn: {
-    background: "#e5e7eb",
-    color: "#111",
-    border: "none",
-    padding: "10px 16px",
-    borderRadius: "20px",
-  },
+
   dangerBtn: {
     background: "#ef4444",
     color: "#fff",
     border: "none",
-    padding: "10px 16px",
-    borderRadius: "20px",
-  },
-  infoBox: {
-    background: "#fff",
-    padding: "15px",
+    padding: "10px 14px",
     borderRadius: "10px",
-    border: "1px solid #e5e7eb",
+    cursor: "pointer",
+  },
+
+  infoBox: {
+    background: "#f0f9ff",
+    border: "1px solid #bae6fd",
+    padding: "12px",
+    borderRadius: "12px",
+    fontSize: "14px",
   },
 };

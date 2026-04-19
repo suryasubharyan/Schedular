@@ -15,41 +15,29 @@ const BASE_URL =
 export default function ConnectPlatforms() {
   return (
     <div style={styles.container}>
-      <h2>Connect Your Accounts</h2>
-
-      <p style={{ color: "#94a3b8" }}>
-        Start by connecting a platform
-      </p>
-
       <div style={styles.grid}>
-
-        {/* LINKEDIN */}
         <a
           href={`${BASE_URL}/api/linkedin/connect`}
-          style={styles.card}
+          style={{ ...styles.card, ...styles.cardSelected }}
         >
           <LinkedInIcon />
           <span>LinkedIn</span>
         </a>
 
-        {/* FACEBOOK */}
-        <div style={styles.disabled}>
+        <div style={styles.card}>
           <FacebookIcon />
           <span>Facebook</span>
         </div>
 
-        {/* INSTAGRAM */}
-        <div style={styles.disabled}>
+        <div style={styles.card}>
           <InstagramIcon />
           <span>Instagram</span>
         </div>
 
-        {/* TWITTER */}
-        <div style={styles.disabled}>
+        <div style={styles.card}>
           <TwitterIcon />
           <span>Twitter</span>
         </div>
-
       </div>
     </div>
   );
@@ -57,44 +45,41 @@ export default function ConnectPlatforms() {
 
 const styles = {
   container: {
-    height: "80vh",
+    width: "100%",
     display: "flex",
     flexDirection: "column",
     alignItems: "center",
     justifyContent: "center",
     textAlign: "center",
+    gap: "18px",
   },
 
   grid: {
-    marginTop: "30px",
+    marginTop: "28px",
     display: "grid",
-    gridTemplateColumns: "repeat(2, 180px)",
-    gap: "20px",
+    gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+    gap: "18px",
+    width: "100%",
   },
 
   card: {
-    background: "#020617",
-    border: "1px solid #1e293b",
-    padding: "20px",
-    borderRadius: "12px",
+    minHeight: "160px",
+    borderRadius: "24px",
+    padding: "26px 20px",
     display: "flex",
     flexDirection: "column",
     alignItems: "center",
-    gap: "10px",
+    justifyContent: "center",
+    gap: "14px",
     cursor: "pointer",
     textDecoration: "none",
-    color: "#fff",
+    color: "#0f172a",
+    background: "#f8fafc",
+    border: "1px solid #cbd5e1",
+    transition: "transform 0.2s ease, box-shadow 0.2s ease",
   },
-
-  disabled: {
-    background: "#020617",
-    border: "1px dashed #334155",
-    padding: "20px",
-    borderRadius: "12px",
-    opacity: 0.5,
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-    gap: "10px",
+  cardSelected: {
+    borderColor: "#2563eb",
+    boxShadow: "0 16px 40px rgba(37, 99, 235, 0.16)",
   },
 };
