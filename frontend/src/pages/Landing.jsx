@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 // eslint-disable-next-line no-unused-vars -- used via JSX member tags (<motion.div>), which core no-unused-vars doesn't track without eslint-plugin-react
 import { motion } from "framer-motion";
+import { IoChevronForward, IoCompassOutline, IoRocketOutline, IoSparkles } from "react-icons/io5";
 import { useTheme } from "../context/ThemeContext";
 import { MoonIcon, SunIcon, CalendarIcon, PostsIcon, ChartIcon } from "../components/Icons";
 import { LinkedInIcon, FacebookIcon, InstagramIcon, TwitterIcon } from "../components/Icons";
@@ -56,39 +57,16 @@ const dotGridStyle = {
   backgroundSize: "22px 22px",
 };
 
-const SparkleIcon = ({ className }) => (
-  <svg className={className} viewBox="0 0 24 24" fill="currentColor">
-    <path d="M12 2.5c.3 3.6 1.2 6 2.9 7.7 1.7 1.7 4.1 2.6 7.6 2.9-3.5.3-5.9 1.2-7.6 2.9-1.7 1.7-2.6 4.1-2.9 7.6-.3-3.5-1.2-5.9-2.9-7.6-1.7-1.7-4.1-2.6-7.6-2.9 3.5-.3 5.9-1.2 7.6-2.9 1.7-1.7 2.6-4.1 2.9-7.7Z" />
-  </svg>
-);
-
-const RocketIcon = ({ className }) => (
-  <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09Z" />
-    <path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2Z" />
-    <path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0" />
-    <path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5" />
-  </svg>
-);
-
-const CompassIcon = ({ className }) => (
-  <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <circle cx="12" cy="12" r="9" />
-    <path d="m14.5 9.5-1.7 5.2a1 1 0 0 1-.6.6l-5.2 1.7 1.7-5.2a1 1 0 0 1 .6-.6z" />
-  </svg>
-);
-
-const ChevronIcon = ({ className }) => (
-  <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-    <path d="m9 6 6 6-6 6" />
-  </svg>
-);
+const SparkleIcon = IoSparkles;
+const RocketIcon = IoRocketOutline;
+const CompassIcon = IoCompassOutline;
+const ChevronIcon = IoChevronForward;
 
 export default function Landing() {
   const { theme, toggleTheme } = useTheme();
 
   return (
-    <div className="relative min-h-screen overflow-x-hidden bg-white text-slate-900 transition-colors duration-300 dark:bg-slate-950 dark:text-slate-100">
+    <div className="relative min-h-screen overflow-x-hidden bg-white text-slate-900 transition-colors duration-300 dark:bg-night-950 dark:text-slate-100">
       {/* Ambient wash */}
       <div className="pointer-events-none fixed -left-32 -top-20 -z-10 h-[520px] w-[520px] rounded-full bg-brand-200/50 blur-[120px] dark:bg-brand-900/25" />
       <div className="pointer-events-none fixed -right-40 top-10 -z-10 h-[460px] w-[460px] rounded-full bg-accent-200/40 blur-[120px] dark:bg-accent-900/15" />
@@ -109,7 +87,7 @@ export default function Landing() {
             type="button"
             onClick={toggleTheme}
             className="grid h-10 w-10 place-items-center rounded-xl border border-slate-200 bg-white/80 text-slate-600 backdrop-blur-sm transition-all
-              duration-200 hover:-translate-y-0.5 hover:bg-white dark:border-slate-800 dark:bg-slate-900/80 dark:text-slate-300 dark:hover:bg-slate-800"
+              duration-200 hover:-translate-y-0.5 hover:bg-white dark:border-night-800 dark:bg-night-900/80 dark:text-slate-300 dark:hover:bg-night-800"
           >
             {theme === "dark" ? <SunIcon className="h-5 w-5" /> : <MoonIcon className="h-5 w-5" />}
           </button>
@@ -135,12 +113,12 @@ export default function Landing() {
             <motion.div
               animate={{ y: [0, -9, 0] }}
               transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
-              className="rounded-2xl border border-slate-200 bg-white/95 p-4 shadow-soft backdrop-blur-sm dark:border-slate-800 dark:bg-slate-900/95"
+              className="rounded-2xl border border-slate-200 bg-white/95 p-4 shadow-soft backdrop-blur-sm dark:border-night-800 dark:bg-night-900/95"
             >
               <p className="text-xs font-bold text-slate-500 dark:text-slate-400">New Post</p>
               <div className="mt-3 space-y-1.5">
-                <div className="h-1.5 w-full rounded-full bg-slate-100 dark:bg-slate-800" />
-                <div className="h-1.5 w-4/5 rounded-full bg-slate-100 dark:bg-slate-800" />
+                <div className="h-1.5 w-full rounded-full bg-slate-100 dark:bg-night-800" />
+                <div className="h-1.5 w-4/5 rounded-full bg-slate-100 dark:bg-night-800" />
               </div>
               <div className="relative mt-3 h-24 w-full overflow-hidden rounded-xl bg-linear-to-br from-brand-300 via-accent-300 to-brand-400">
                 <motion.div
@@ -179,7 +157,7 @@ export default function Landing() {
               <motion.div
                 animate={{ y: [0, -9, 0] }}
                 transition={{ duration: 6.5, repeat: Infinity, ease: "easeInOut", delay: 0.4 }}
-                className="w-48 rounded-2xl border border-slate-200 bg-white/95 p-4 shadow-soft backdrop-blur-sm dark:border-slate-800 dark:bg-slate-900/95"
+                className="w-48 rounded-2xl border border-slate-200 bg-white/95 p-4 shadow-soft backdrop-blur-sm dark:border-night-800 dark:bg-night-900/95"
               >
                 <div className="flex items-center justify-between">
                   <p className="text-xs font-bold text-slate-500 dark:text-slate-400">June 2026</p>
@@ -217,7 +195,7 @@ export default function Landing() {
               <motion.div
                 animate={{ y: [0, -9, 0] }}
                 transition={{ duration: 7, repeat: Infinity, ease: "easeInOut", delay: 0.8 }}
-                className="w-56 rounded-2xl border border-slate-200 bg-white/95 p-4 shadow-soft backdrop-blur-sm dark:border-slate-800 dark:bg-slate-900/95"
+                className="w-56 rounded-2xl border border-slate-200 bg-white/95 p-4 shadow-soft backdrop-blur-sm dark:border-night-800 dark:bg-night-900/95"
               >
                 <p className="text-xs font-bold text-slate-500 dark:text-slate-400">Thursday, June 18</p>
                 <div className="mt-3 space-y-2.5">
@@ -301,7 +279,7 @@ export default function Landing() {
               <a
                 href="#features"
                 className="inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-7 py-4 text-base font-bold text-slate-700
-                  transition-all duration-200 hover:-translate-y-1 hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
+                  transition-all duration-200 hover:-translate-y-1 hover:bg-slate-50 dark:border-night-800 dark:bg-night-900 dark:text-slate-200 dark:hover:bg-night-800"
               >
                 <CompassIcon className="h-4.5 w-4.5" />
                 See what's inside
@@ -346,7 +324,7 @@ export default function Landing() {
               transition={{ duration: 0.5, delay: index * 0.08 }}
               whileHover={{ y: -6 }}
               className="group relative overflow-hidden rounded-3xl border border-slate-200 bg-white p-7 shadow-soft transition-all
-                duration-300 hover:border-brand-200 hover:shadow-lg dark:border-slate-800 dark:bg-slate-900 dark:hover:border-brand-700/50"
+                duration-300 hover:border-brand-200 hover:shadow-lg dark:border-night-800 dark:bg-night-900 dark:hover:border-brand-700/50"
             >
               <div className="pointer-events-none absolute -right-8 -top-8 h-32 w-32 rounded-full bg-brand-100/0 blur-2xl transition-all duration-300 group-hover:bg-brand-100/70 dark:group-hover:bg-brand-500/10" />
 
@@ -400,7 +378,7 @@ export default function Landing() {
         </motion.div>
       </section>
 
-      <footer className="border-t border-slate-200 px-6 py-8 text-center text-sm text-slate-400 dark:border-slate-800">
+      <footer className="border-t border-slate-200 px-6 py-8 text-center text-sm text-slate-400 dark:border-night-800">
         © {new Date().getFullYear()} Schedular. Built for creators and teams.
       </footer>
     </div>

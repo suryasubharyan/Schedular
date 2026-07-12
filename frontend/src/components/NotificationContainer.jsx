@@ -1,9 +1,14 @@
 import { useEffect } from "react";
 import { useNotification } from "../context/NotificationContext";
 
-const NotificationItem = ({ notification, onRemove }) => {
-  const { removeNotification } = useNotification();
+const TYPE_STYLES = {
+  success: "bg-green-50 border-green-200 text-green-800 dark:bg-green-950/60 dark:border-green-900 dark:text-green-300",
+  error: "bg-red-50 border-red-200 text-red-800 dark:bg-red-950/60 dark:border-red-900 dark:text-red-300",
+  warning: "bg-amber-50 border-amber-200 text-amber-800 dark:bg-amber-950/60 dark:border-amber-900 dark:text-amber-300",
+  info: "bg-brand-50 border-brand-200 text-brand-800 dark:bg-brand-950/60 dark:border-brand-900 dark:text-brand-300",
+};
 
+const NotificationItem = ({ notification, onRemove }) => {
   useEffect(() => {
     if (notification.duration > 0) {
       const timer = setTimeout(() => {
@@ -28,117 +33,29 @@ const NotificationItem = ({ notification, onRemove }) => {
     }
   };
 
-  const getStyles = (type) => {
-    const baseStyles = {
-      display: "flex",
-      alignItems: "center",
-      gap: "12px",
-      padding: "16px 20px",
-      borderRadius: "8px",
-      boxShadow: "0 4px 12px rgba(0, 0, 0, 0.15)",
-      border: "1px solid",
-      marginBottom: "12px",
-      minWidth: "320px",
-      maxWidth: "500px",
-      fontFamily: "Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
-      fontSize: "14px",
-      lineHeight: "1.4",
-      cursor: "pointer",
-      transition: "all 0.2s ease",
-      position: "relative",
-      overflow: "hidden",
-    };
-
-    switch (type) {
-      case "success":
-        return {
-          ...baseStyles,
-          background: "#f0fdf4",
-          borderColor: "#bbf7d0",
-          color: "#166534",
-        };
-      case "error":
-        return {
-          ...baseStyles,
-          background: "#fef2f2",
-          borderColor: "#fecaca",
-          color: "#991b1b",
-        };
-      case "warning":
-        return {
-          ...baseStyles,
-          background: "#fffbeb",
-          borderColor: "#fde68a",
-          color: "#92400e",
-        };
-      case "info":
-      default:
-        return {
-          ...baseStyles,
-          background: "#eff6ff",
-          borderColor: "#bfdbfe",
-          color: "#1e40af",
-        };
-    }
-  };
-
-  const iconStyles = {
-    fontSize: "18px",
-    fontWeight: "bold",
-    flexShrink: 0,
-  };
-
-  const closeButtonStyles = {
-    background: "none",
-    border: "none",
-    fontSize: "20px",
-    cursor: "pointer",
-    color: "inherit",
-    opacity: 0.7,
-    padding: "0",
-    marginLeft: "auto",
-    flexShrink: 0,
-  };
-
   return (
     <div
-      style={getStyles(notification.type)}
       onClick={() => onRemove(notification.id)}
-      onMouseEnter={(e) => {
-        e.target.style.transform = "translateY(-2px)";
-        e.target.style.boxShadow = "0 6px 20px rgba(0, 0, 0, 0.2)";
-      }}
-      onMouseLeave={(e) => {
-        e.target.style.transform = "translateY(0)";
-        e.target.style.boxShadow = "0 4px 12px rgba(0, 0, 0, 0.15)";
-      }}
+      className={`relative mb-3 flex min-w-80 max-w-125 cursor-pointer items-center gap-3 overflow-hidden rounded-xl
+        border px-5 py-4 text-sm leading-tight shadow-lg transition-all duration-200 hover:-translate-y-0.5 hover:shadow-xl
+        ${TYPE_STYLES[notification.type] || TYPE_STYLES.info}`}
     >
-      <span style={iconStyles}>{getIcon(notification.type)}</span>
-      <span style={{ flex: 1 }}>{notification.message}</span>
+      <span className="shrink-0 text-lg font-bold">{getIcon(notification.type)}</span>
+      <span className="flex-1">{notification.message}</span>
       <button
-        style={closeButtonStyles}
         onClick={(e) => {
           e.stopPropagation();
           onRemove(notification.id);
         }}
-        onMouseEnter={(e) => (e.target.style.opacity = 1)}
-        onMouseLeave={(e) => (e.target.style.opacity = 0.7)}
+        className="ml-auto shrink-0 border-none bg-transparent p-0 text-xl text-current opacity-70 transition-opacity duration-150 hover:opacity-100"
       >
         ×
       </button>
 
-      {/* Progress bar for timer */}
       {notification.duration > 0 && (
         <div
-          style={{
-            position: "absolute",
-            bottom: 0,
-            left: 0,
-            height: "3px",
-            background: "currentColor",
-            opacity: 0.3,
-            animation: `shrink ${notification.duration}ms linear forwards`,
-          }}
+          className="animate-shrink absolute bottom-0 left-0 h-0.75 bg-current opacity-30"
+          style={{ animationDuration: `${notification.duration}ms` }}
         />
       )}
     </div>
@@ -151,16 +68,8 @@ const NotificationContainer = () => {
   if (notifications.length === 0) return null;
 
   return (
-    <div
-      style={{
-        position: "fixed",
-        top: "20px",
-        right: "20px",
-        zIndex: 9999,
-        pointerEvents: "none",
-      }}
-    >
-      <div style={{ pointerEvents: "auto" }}>
+    <div className="pointer-events-none fixed right-5 top-5 z-9999">
+      <div className="pointer-events-auto">
         {notifications.map((notification) => (
           <NotificationItem
             key={notification.id}
@@ -169,15 +78,6 @@ const NotificationContainer = () => {
           />
         ))}
       </div>
-
-      <style>
-        {`
-          @keyframes shrink {
-            from { width: 100%; }
-            to { width: 0%; }
-          }
-        `}
-      </style>
     </div>
   );
 };

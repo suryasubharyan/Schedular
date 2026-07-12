@@ -1,85 +1,85 @@
+// eslint-disable-next-line no-unused-vars -- used via JSX member tags (<motion.button>), which core no-unused-vars doesn't track without eslint-plugin-react
+import { motion } from "framer-motion";
 import {
   LinkedInIcon,
   FacebookIcon,
   InstagramIcon,
   TwitterIcon,
 } from "./Icons";
+import { PLATFORM_ORDER, getPlatformMeta } from "../lib/platforms";
 
-const ENV = import.meta.env.VITE_ENV;
+const iconMap = {
+  linkedin: LinkedInIcon,
+  facebook: FacebookIcon,
+  instagram: InstagramIcon,
+  x: TwitterIcon,
+};
 
-const BASE_URL =
-  ENV === "local"
-    ? import.meta.env.VITE_API_URL_LOCAL
-    : import.meta.env.VITE_API_URL_PROD;
+export default function ConnectPlatforms({
+  accounts = [],
+  onConnect,
+  onOpenLinkedInConnect,
+}) {
+  const accountMap = accounts.reduce((acc, account) => {
+    acc[account.platform] = account;
+    return acc;
+  }, {});
 
-export default function ConnectPlatforms() {
   return (
-    <div style={styles.container}>
-      <div style={styles.grid}>
-        <a
-          href={`${BASE_URL}/api/linkedin/connect`}
-          style={{ ...styles.card, ...styles.cardSelected }}
-        >
-          <LinkedInIcon />
-          <span>LinkedIn</span>
-        </a>
+    <div className="grid w-full grid-cols-2 gap-4">
+      {PLATFORM_ORDER.map((platform, index) => {
+        const Icon = iconMap[platform];
+        const meta = getPlatformMeta(platform);
+        const account = accountMap[platform];
+        const connected = Boolean(account?.connected);
 
-        <div style={styles.card}>
-          <FacebookIcon />
-          <span>Facebook</span>
-        </div>
-
-        <div style={styles.card}>
-          <InstagramIcon />
-          <span>Instagram</span>
-        </div>
-
-        <div style={styles.card}>
-          <TwitterIcon />
-          <span>Twitter</span>
-        </div>
-      </div>
+        return (
+          <motion.button
+            key={platform}
+            type="button"
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4, delay: index * 0.06 }}
+            whileHover={{ y: -4 }}
+            whileTap={{ scale: 0.97 }}
+            onClick={() =>
+              platform === "linkedin"
+                ? onOpenLinkedInConnect?.()
+                : onConnect?.(platform)
+            }
+            style={connected ? { borderColor: meta.accent, boxShadow: `0 18px 40px ${hexToShadow(meta.accent)}` } : undefined}
+            className={`flex min-h-40 flex-col items-center justify-center gap-3 rounded-2xl border p-6 text-center
+              transition-shadow duration-200 hover:shadow-lg
+              ${
+                connected
+                  ? "bg-slate-50 dark:bg-night-800/60"
+                  : "border-slate-200 bg-slate-50 dark:border-night-700 dark:bg-night-800/40"
+              }`}
+          >
+            <Icon />
+            <span className="text-base font-bold text-slate-900 dark:text-white">{meta.label}</span>
+            <span
+              style={connected ? { color: meta.accent } : undefined}
+              className={connected ? "text-sm font-semibold" : "text-sm font-semibold text-slate-500 dark:text-slate-400"}
+            >
+              {connected ? "Connected" : "Connect"}
+            </span>
+          </motion.button>
+        );
+      })}
     </div>
   );
 }
 
-const styles = {
-  container: {
-    width: "100%",
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-    justifyContent: "center",
-    textAlign: "center",
-    gap: "18px",
-  },
+const hexToShadow = (hex) => {
+  const sanitized = hex.replace("#", "");
+  const value = sanitized.length === 3
+    ? sanitized.split("").map((char) => char + char).join("")
+    : sanitized;
 
-  grid: {
-    marginTop: "28px",
-    display: "grid",
-    gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
-    gap: "18px",
-    width: "100%",
-  },
+  const red = parseInt(value.slice(0, 2), 16);
+  const green = parseInt(value.slice(2, 4), 16);
+  const blue = parseInt(value.slice(4, 6), 16);
 
-  card: {
-    minHeight: "160px",
-    borderRadius: "24px",
-    padding: "26px 20px",
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: "14px",
-    cursor: "pointer",
-    textDecoration: "none",
-    color: "#0f172a",
-    background: "#f8fafc",
-    border: "1px solid #cbd5e1",
-    transition: "transform 0.2s ease, box-shadow 0.2s ease",
-  },
-  cardSelected: {
-    borderColor: "#2563eb",
-    boxShadow: "0 16px 40px rgba(37, 99, 235, 0.16)",
-  },
+  return `rgba(${red}, ${green}, ${blue}, 0.18)`;
 };

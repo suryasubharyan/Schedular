@@ -7,7 +7,6 @@ import { PLATFORM_ORDER, formatPlatformLabel, getPlatformMeta } from "../lib/pla
 import {
   CalendarIcon,
   ChevronDownIcon,
-  LightbulbIcon,
   PostsIcon,
   SendIcon,
   ShieldIcon,
@@ -21,23 +20,17 @@ const STATUS_META = {
     empty: "No drafts yet",
     iconClass: "bg-brand-50 text-brand-600 dark:bg-brand-500/10 dark:text-brand-400",
   },
-  saved: {
-    label: "Saved ideas",
-    icon: LightbulbIcon,
-    empty: "Start saving ideas",
-    iconClass: "bg-brand-50 text-brand-600 dark:bg-brand-500/10 dark:text-brand-400",
-  },
   scheduled: {
     label: "Scheduled",
     icon: CalendarIcon,
     empty: "Nothing scheduled",
-    iconClass: "bg-sky-50 text-sky-600 dark:bg-sky-500/10 dark:text-sky-400",
+    iconClass: "bg-accent-50 text-accent-600 dark:bg-accent-500/10 dark:text-accent-400",
   },
   posted: {
     label: "Published",
     icon: SendIcon,
     empty: "No posts published",
-    iconClass: "bg-violet-50 text-violet-600 dark:bg-violet-500/10 dark:text-violet-400",
+    iconClass: "bg-lime-50 text-lime-600 dark:bg-lime-500/10 dark:text-lime-400",
   },
 };
 
@@ -102,7 +95,7 @@ export default function Analytics() {
           </p>
         </div>
 
-        <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="mb-6 grid gap-4 sm:grid-cols-3">
           {Object.entries(STATUS_META).map(([status, meta], index) => {
             const Icon = meta.icon;
             const count = statusCounts[status];
@@ -130,7 +123,7 @@ export default function Analytics() {
                   value={range}
                   onChange={(event) => setRange(event.target.value)}
                   className="appearance-none rounded-full border border-slate-200 bg-white py-1.5 pl-3 pr-8 text-xs font-semibold text-slate-600
-                    outline-none transition-colors duration-200 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
+                    outline-none transition-colors duration-200 hover:bg-slate-50 dark:border-night-700 dark:bg-night-800 dark:text-slate-300 dark:hover:bg-night-700"
                 >
                   {RANGE_OPTIONS.map((option) => (
                     <option key={option.value} value={option.value}>
@@ -176,7 +169,7 @@ export default function Analytics() {
                           {total} total · {posted} published
                         </span>
                       </div>
-                      <div className="h-2.5 w-full overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
+                      <div className="h-2.5 w-full overflow-hidden rounded-full bg-slate-100 dark:bg-night-800">
                         <div
                           style={{ width: `${width}%`, background: meta.accent }}
                           className="h-full rounded-full transition-all duration-500"
@@ -188,7 +181,7 @@ export default function Analytics() {
               </div>
             )}
 
-            <div className="mt-6 flex flex-wrap items-center justify-center gap-4 border-t border-slate-100 pt-5 dark:border-slate-800">
+            <div className="mt-6 flex flex-wrap items-center justify-center gap-4 border-t border-slate-100 pt-5 dark:border-night-800">
               {PLATFORM_ORDER.map((platform) => {
                 const meta = getPlatformMeta(platform);
                 return (
@@ -221,7 +214,7 @@ export default function Analytics() {
                   return (
                     <div
                       key={account.platform}
-                      className="rounded-xl border border-slate-100 px-3.5 py-3 dark:border-slate-800"
+                      className="rounded-xl border border-slate-100 px-3.5 py-3 dark:border-night-800"
                     >
                       <div className="flex items-center justify-between">
                         <span style={{ color: meta.accent }} className="text-sm font-bold">
@@ -248,12 +241,12 @@ export default function Analytics() {
             )}
 
             {topPerformer && (
-              <div className="mt-5 border-t border-slate-100 pt-5 dark:border-slate-800">
+              <div className="mt-5 border-t border-slate-100 pt-5 dark:border-night-800">
                 <p className="mb-2.5 text-xs font-bold uppercase tracking-wide text-slate-400">
                   Top performing platform
                 </p>
-                <div className="flex items-center gap-3 rounded-xl border border-slate-100 px-3.5 py-3 dark:border-slate-800">
-                  <div className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-amber-50 text-amber-500 dark:bg-amber-500/10">
+                <div className="flex items-center gap-3 rounded-xl border border-slate-100 px-3.5 py-3 dark:border-night-800">
+                  <div className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-brand-50 text-brand-500 dark:bg-brand-500/10">
                     <StarIcon className="h-4 w-4" />
                   </div>
                   <div className="min-w-0 flex-1">

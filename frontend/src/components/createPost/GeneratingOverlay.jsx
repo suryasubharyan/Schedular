@@ -21,7 +21,7 @@ const BLOBS = [
 
 export default function GeneratingOverlay({ steps, activeStep, onSkip }) {
   return (
-    <div className="fixed inset-0 z-60 overflow-hidden bg-slate-50 dark:bg-slate-950">
+    <div className="fixed inset-0 z-60 overflow-hidden bg-slate-50 dark:bg-night-950">
       <div
         className="absolute inset-0"
         style={{
@@ -102,7 +102,7 @@ export default function GeneratingOverlay({ steps, activeStep, onSkip }) {
                   <span className="h-5 w-5 shrink-0 animate-spin rounded-full border-2 border-brand-200 border-t-brand-600" />
                 ) : (
                   <span className="grid h-5 w-5 shrink-0 place-items-center">
-                    <span className="h-2 w-2 rounded-full bg-slate-300 dark:bg-slate-600" />
+                    <span className="h-2 w-2 rounded-full bg-slate-300 dark:bg-night-600" />
                   </span>
                 )}
                 <span

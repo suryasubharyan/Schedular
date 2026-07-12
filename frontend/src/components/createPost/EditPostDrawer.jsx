@@ -45,19 +45,19 @@ export default function EditPostDrawer({
 
           <motion.div
             key="panel"
-            className="fixed right-0 top-0 z-70 flex h-full w-full max-w-md flex-col bg-white shadow-2xl dark:bg-slate-900"
+            className="fixed right-0 top-0 z-70 flex h-full w-full max-w-md flex-col bg-white shadow-2xl dark:bg-night-900"
             initial={{ x: "100%" }}
             animate={{ x: 0 }}
             exit={{ x: "100%" }}
             transition={{ type: "tween", duration: 0.25, ease: "easeOut" }}
           >
-            <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4 dark:border-slate-800">
+            <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4 dark:border-night-800">
               <h2 className="text-base font-bold text-slate-900 dark:text-white">Edit post</h2>
               <button
                 type="button"
                 onClick={onClose}
                 className="grid h-8 w-8 place-items-center rounded-full text-slate-400 transition-colors duration-200
-                  hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800 dark:hover:text-slate-200"
+                  hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-night-800 dark:hover:text-slate-200"
               >
                 <IoClose className="h-5 w-5" />
               </button>
@@ -74,7 +74,7 @@ export default function EditPostDrawer({
                     onChange={(e) => setContent(e.target.value)}
                     placeholder="What do you want to share today?"
                     className="min-h-40 w-full resize-y rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm text-slate-900
-                      outline-none placeholder:text-slate-400 focus:border-brand-400 dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+                      outline-none placeholder:text-slate-400 focus:border-brand-400 dark:border-night-700 dark:bg-night-800 dark:text-white"
                   />
                 </div>
 
@@ -86,7 +86,7 @@ export default function EditPostDrawer({
                     <label
                       className="flex w-fit cursor-pointer items-center gap-2 rounded-xl border border-dashed border-slate-300
                         bg-white px-3.5 py-2.5 text-sm font-semibold text-slate-700 transition-all duration-200 hover:border-brand-400
-                        hover:bg-brand-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200"
+                        hover:bg-brand-50 dark:border-night-600 dark:bg-night-800 dark:text-slate-200"
                     >
                       <IoImageOutline className="h-4 w-4" />
                       Images ({imageUrls?.length || 0}/{MAX_IMAGES})
@@ -96,7 +96,7 @@ export default function EditPostDrawer({
                     <label
                       className="flex w-fit cursor-pointer items-center gap-2 rounded-xl border border-dashed border-slate-300
                         bg-white px-3.5 py-2.5 text-sm font-semibold text-slate-700 transition-all duration-200 hover:border-brand-400
-                        hover:bg-brand-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200"
+                        hover:bg-brand-50 dark:border-night-600 dark:bg-night-800 dark:text-slate-200"
                     >
                       <IoVideocamOutline className="h-4 w-4" />
                       {videoUrl ? "Replace Video" : "Video"}
@@ -164,7 +164,7 @@ export default function EditPostDrawer({
                               : { borderColor: meta.border }
                           }
                           className={`rounded-full border px-3 py-2 text-sm font-bold transition-all duration-200
-                            ${active ? "text-white" : "bg-white text-slate-700 dark:bg-slate-800 dark:text-slate-200"}`}
+                            ${active ? "text-white" : "bg-white text-slate-700 dark:bg-night-800 dark:text-slate-200"}`}
                         >
                           {active ? "✓ " : ""}
                           {meta.label}
@@ -219,7 +219,7 @@ export default function EditPostDrawer({
               </div>
             </div>
 
-            <div className="flex flex-wrap gap-2.5 border-t border-slate-100 px-5 py-4 dark:border-slate-800">
+            <div className="flex flex-wrap gap-2.5 border-t border-slate-100 px-5 py-4 dark:border-night-800">
               <Button variant="secondary" disabled={!canSubmit} onClick={() => onSubmit("draft", selectedPlatforms)}>
                 Save Draft
               </Button>

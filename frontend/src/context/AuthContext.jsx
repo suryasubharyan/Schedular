@@ -1,4 +1,4 @@
-import { createContext, useEffect, useState } from "react";
+import { createContext, useCallback, useEffect, useMemo, useState } from "react";
 import {
   logoutApi,
   updateProfile as updateProfileApi,
@@ -29,33 +29,33 @@ export const AuthProvider = ({ children }) => {
     checkAuth();
   }, []);
 
-  const login = async (email, password) => {
+  const login = useCallback(async (email, password) => {
     const res = await loginApi({ email, password });
     setUser(res.data.user);
     return res;
-  };
+  }, []);
 
-  const register = async (email, password, name) => {
+  const register = useCallback(async (email, password, name) => {
     const res = await registerApi({ email, password, name });
     return res;
-  };
+  }, []);
 
-  const googleLogin = async (credential) => {
+  const googleLogin = useCallback(async (credential) => {
     const res = await googleLoginApi(credential);
     setUser(res.data.user);
     return res;
-  };
+  }, []);
 
-  const updateUser = async (payload) => {
+  const updateUser = useCallback(async (payload) => {
     const res = await updateProfileApi(payload);
     setUser((prevUser) => ({
       ...prevUser,
       ...res.data.user,
     }));
     return res;
-  };
+  }, []);
 
-  const logout = async () => {
+  const logout = useCallback(async () => {
     try {
       await logoutApi();
     } catch {
@@ -63,21 +63,20 @@ export const AuthProvider = ({ children }) => {
     }
 
     setUser(null);
-  };
+  }, []);
 
-  return (
-    <AuthContext.Provider
-      value={{
-        user,
-        authReady,
-        login,
-        register,
-        googleLogin,
-        updateUser,
-        logout,
-      }}
-    >
-      {children}
-    </AuthContext.Provider>
+  const value = useMemo(
+    () => ({
+      user,
+      authReady,
+      login,
+      register,
+      googleLogin,
+      updateUser,
+      logout,
+    }),
+    [user, authReady, login, register, googleLogin, updateUser, logout]
   );
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };

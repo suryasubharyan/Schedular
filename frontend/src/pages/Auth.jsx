@@ -1,7 +1,9 @@
 import { useContext, useEffect, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { AuthContext } from "../context/AuthContext";
 import { useNotification } from "../context/NotificationContext";
+import Logo from "../components/Logo";
+import { getErrorMessage } from "../utils/getErrorMessage";
 
 const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
 
@@ -16,11 +18,14 @@ export default function Auth() {
   const { user, authReady, login, register, googleLogin } = useContext(AuthContext);
   const { showError, showSuccess } = useNotification();
   const navigate = useNavigate();
+  const location = useLocation();
+  const destination = location.state?.from || "/dashboard";
 
   useEffect(() => {
     if (authReady && user) {
-      navigate("/dashboard", { replace: true });
+      navigate(destination, { replace: true });
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authReady, navigate, user]);
 
   useEffect(() => {
@@ -47,7 +52,7 @@ export default function Auth() {
           try {
             await googleLogin(response.credential);
             showSuccess("Successfully logged in with Google!");
-            navigate("/dashboard");
+            navigate(destination);
           } catch (error) {
             showError(getErrorMessage(error));
           } finally {
@@ -84,19 +89,7 @@ export default function Auth() {
     return () => {
       isMounted = false;
     };
-  }, [googleLogin, navigate]);
-
-  const getErrorMessage = (error) => {
-    if (!error) return "Something went wrong";
-
-    const response = error.response?.data;
-    if (response) {
-      if (typeof response === "string") return response;
-      return response.error || response.message || JSON.stringify(response);
-    }
-
-    return error.message || "Something went wrong";
-  };
+  }, [googleLogin, navigate, destination]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -112,7 +105,7 @@ export default function Auth() {
       if (isLogin) {
         await login(email, password);
         showSuccess("Login successful!");
-        navigate("/dashboard");
+        navigate(destination);
       } else {
         await register(email, password, name);
         showSuccess("Account created successfully. Please login.");
@@ -127,34 +120,68 @@ export default function Auth() {
   };
 
   return (
-    <div style={styles.container}>
-      <div style={styles.card}>
-        <div style={styles.toggle}>
-          <button
-            type="button"
-            style={isLogin ? styles.activeTab : styles.tab}
-            onClick={() => setIsLogin(true)}
-          >
-            Login
-          </button>
-          <button
-            type="button"
-            style={!isLogin ? styles.activeTab : styles.tab}
-            onClick={() => setIsLogin(false)}
-          >
-            Signup
-          </button>
+    <div className="grid min-h-screen bg-slate-50 transition-colors duration-300 dark:bg-night-950 lg:grid-cols-2">
+      <div className="relative hidden overflow-hidden bg-linear-to-br from-slate-900 via-brand-800 to-accent-700 p-12 text-white lg:flex lg:flex-col lg:justify-between">
+        <div className="absolute -left-24 -top-24 h-72 w-72 rounded-full bg-white/10 blur-3xl" />
+        <div className="absolute bottom-0 right-0 h-96 w-96 rounded-full bg-accent-400/20 blur-3xl" />
+
+        <Link to="/" className="relative z-10 flex items-center gap-3">
+          <Logo className="h-11 w-11" />
+          <span className="font-display text-xl font-semibold tracking-tight">Schedular</span>
+        </Link>
+
+        <div className="relative z-10 max-w-md">
+          <h1 className="font-display text-4xl font-semibold leading-tight">
+            Plan once. <span className="italic">Publish everywhere.</span>
+          </h1>
+          <p className="mt-4 text-base text-brand-100">
+            Compose posts, schedule them across LinkedIn and more, and keep every
+            connected profile organized from a single, calm dashboard.
+          </p>
         </div>
 
-        <h2 style={styles.header}>
-          {isLogin ? "Welcome Back" : "Create Account"}
-        </h2>
+        <p className="relative z-10 text-sm text-brand-200">
+          © {new Date().getFullYear()} Schedular. Built for creators and teams.
+        </p>
+      </div>
 
-        <form onSubmit={handleSubmit}>
-          <div style={styles.inputContainer}>
+      <div className="flex items-center justify-center px-6 py-16">
+        <div className="w-full max-w-md rounded-3xl border border-slate-200 bg-white p-8 shadow-soft transition-colors duration-300 dark:border-night-800 dark:bg-night-900 sm:p-10">
+          <div className="mb-8 flex rounded-xl bg-slate-100 p-1 dark:bg-night-800">
+            <button
+              type="button"
+              onClick={() => setIsLogin(true)}
+              className={`flex-1 rounded-lg py-2.5 text-sm font-semibold transition-all duration-200 ${
+                isLogin
+                  ? "bg-white text-slate-900 shadow-sm dark:bg-night-950 dark:text-white"
+                  : "text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
+              }`}
+            >
+              Login
+            </button>
+            <button
+              type="button"
+              onClick={() => setIsLogin(false)}
+              className={`flex-1 rounded-lg py-2.5 text-sm font-semibold transition-all duration-200 ${
+                !isLogin
+                  ? "bg-white text-slate-900 shadow-sm dark:bg-night-950 dark:text-white"
+                  : "text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
+              }`}
+            >
+              Signup
+            </button>
+          </div>
+
+          <h2 className="font-display mb-6 text-center text-2xl font-semibold text-slate-900 dark:text-white">
+            {isLogin ? "Welcome back" : "Create your account"}
+          </h2>
+
+          <form onSubmit={handleSubmit} className="flex flex-col gap-4">
             {!isLogin && (
               <input
-                style={styles.input}
+                className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3.5 text-sm text-slate-900 outline-none
+                  transition-all duration-200 placeholder:text-slate-400 focus:border-brand-500 focus:ring-2 focus:ring-brand-100
+                  dark:border-night-700 dark:bg-night-800 dark:text-white dark:focus:ring-brand-900/40"
                 placeholder="Full Name"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
@@ -162,174 +189,57 @@ export default function Auth() {
             )}
 
             <input
-              style={styles.input}
+              className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3.5 text-sm text-slate-900 outline-none
+                transition-all duration-200 placeholder:text-slate-400 focus:border-brand-500 focus:ring-2 focus:ring-brand-100
+                dark:border-night-700 dark:bg-night-800 dark:text-white dark:focus:ring-brand-900/40"
               placeholder="Email Address"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
             />
 
             <input
-              style={styles.input}
+              className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3.5 text-sm text-slate-900 outline-none
+                transition-all duration-200 placeholder:text-slate-400 focus:border-brand-500 focus:ring-2 focus:ring-brand-100
+                dark:border-night-700 dark:bg-night-800 dark:text-white dark:focus:ring-brand-900/40"
               type="password"
               placeholder="Password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
             />
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="mt-2 w-full rounded-xl bg-linear-to-r from-brand-600 to-accent-600 py-3.5 text-sm font-bold text-white shadow-soft transition-all
+                duration-200 hover:-translate-y-0.5 hover:shadow-lg hover:brightness-110 disabled:cursor-not-allowed
+                disabled:opacity-60 disabled:translate-y-0"
+            >
+              {loading ? "Processing..." : isLogin ? "Sign In" : "Create Account"}
+            </button>
+          </form>
+
+          <div className="my-6 flex items-center gap-3">
+            <span className="h-px flex-1 bg-slate-200 dark:bg-night-800" />
+            <span className="text-xs font-medium text-slate-400">OR</span>
+            <span className="h-px flex-1 bg-slate-200 dark:bg-night-800" />
           </div>
 
-          <button type="submit" style={styles.button} disabled={loading}>
-            {loading ? "Processing..." : isLogin ? "Sign In" : "Create Account"}
-          </button>
-        </form>
+          {googleClientId ? (
+            <div className="flex justify-center" ref={googleButtonRef} />
+          ) : (
+            <p className="text-center text-xs text-slate-400">
+              Add <code className="rounded bg-slate-100 px-1.5 py-0.5 dark:bg-night-800">VITE_GOOGLE_CLIENT_ID</code> in
+              frontend env to enable Google login.
+            </p>
+          )}
 
-        <div style={styles.divider}>
-          <span style={styles.dividerLine}></span>
-          <span style={styles.dividerText}>OR</span>
-          <span style={styles.dividerLine}></span>
-        </div>
-
-        {googleClientId ? (
-          <div style={styles.googleWrapper}>
-            <div ref={googleButtonRef} />
-          </div>
-        ) : (
-          <p style={styles.googleHelp}>
-            Add <code>VITE_GOOGLE_CLIENT_ID</code> in frontend env to enable Google login.
+          <p className="mt-8 text-center text-xs text-slate-400">
+            <Link to="/" className="font-semibold text-brand-600 hover:underline dark:text-brand-400">
+              ← Back to home
+            </Link>
           </p>
-        )}
+        </div>
       </div>
     </div>
   );
 }
-
-
-
-const styles = {
-  container: {
-    minHeight: "100vh",
-    display: "flex",
-    justifyContent: "center",
-    alignItems: "center",
-    background: "#f5f5f5",
-    fontFamily: "'Inter', sans-serif",
-    color: "#111",
-  },
-
-  card: {
-    width: "100%",
-    maxWidth: "420px",
-    padding: "40px",
-    borderRadius: "20px",
-    background: "#ffffff",
-    border: "1px solid #e5e5e5",
-    boxShadow: "0 10px 25px rgba(0,0,0,0.06)",
-  },
-
-  toggle: {
-    display: "flex",
-    background: "#f1f1f1",
-    borderRadius: "12px",
-    padding: "4px",
-    marginBottom: "24px",
-  },
-
-  tab: {
-    flex: 1,
-    padding: "10px",
-    background: "transparent",
-    color: "#666",
-    border: "none",
-    borderRadius: "10px",
-    cursor: "pointer",
-  },
-
-  activeTab: {
-    flex: 1,
-    padding: "10px",
-    background: "#111",
-    color: "#fff",
-    border: "none",
-    borderRadius: "10px",
-    cursor: "pointer",
-  },
-
-  header: {
-    textAlign: "center",
-    marginBottom: "30px",
-    fontSize: "24px",
-    fontWeight: "700",
-  },
-
-  inputContainer: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "18px",
-    marginBottom: "25px",
-  },
-
-  inputGroup: {
-    position: "relative",
-  },
-
-  input: {
-    width: "100%",
-    padding: "16px 12px 6px",
-    borderRadius: "10px",
-    border: "1px solid #d1d5db",
-    background: "#fff",
-    fontSize: "14px",
-    outline: "none",
-  },
-
-  label: {
-    position: "absolute",
-    left: "12px",
-    top: "12px",
-    fontSize: "13px",
-    color: "#6b7280",
-    background: "#fff",
-    padding: "0 4px",
-    transition: "0.2s ease",
-    pointerEvents: "none",
-  },
-
-  button: {
-    width: "100%",
-    padding: "14px",
-    borderRadius: "10px",
-    background: "#111",
-    color: "#fff",
-    border: "none",
-    fontWeight: "600",
-    cursor: "pointer",
-  },
-
-  divider: {
-    display: "flex",
-    alignItems: "center",
-    margin: "25px 0",
-  },
-
-  dividerLine: {
-    flex: 1,
-    height: "1px",
-    background: "#e5e5e5",
-  },
-
-  dividerText: {
-    padding: "0 10px",
-    fontSize: "12px",
-    color: "#777",
-  },
-
-  googleWrapper: {
-    display: "flex",
-    justifyContent: "center",
-  },
-};
-
-
-
-
-
-

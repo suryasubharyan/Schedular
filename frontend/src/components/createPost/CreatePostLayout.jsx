@@ -1,239 +1,46 @@
-import { useEffect, useState } from "react";
-import PostEditor from "./PostEditor";
 import PostPreview from "./PostPreview";
-import ScheduleBox from "./ScheduleBox"; // 🔥 NEW
+import Button from "../ui/Button";
+import { getPlatformMeta, getPostExternalUrl } from "../../lib/platforms";
 
-export default function CreatePostLayout({
-  content, setContent,
-  imageUrls, setImageUrls,
-  profile,
-  onSave, onBack,
-  activeTab,
-  selectedPost,
-  selectedDateTime, setSelectedDateTime, // 🔥 NEW
-}) {
-  const [showReschedule, setShowReschedule] = useState(false);
-  
-
-  const isDraft = activeTab === "draft";
-  const isSaved = activeTab === "saved";
-  const isScheduled = activeTab === "scheduled";
-  const isPosted = activeTab === "posted";
-
-  useEffect(() => {
-    if (selectedPost?._id) {
-      setContent(selectedPost.content || "");
-      setImageUrls(selectedPost.imageUrls || []);
-
-      // 🔥 scheduled case
-      if (selectedPost.scheduledDate && selectedPost.scheduledSlot) {
-        const combined = new Date(
-          `${selectedPost.scheduledDate}T${selectedPost.scheduledSlot}`
-        );
-        if (!isNaN(combined)) setSelectedDateTime(combined);
-      }
-    }
-  }, [selectedPost?._id]);
-
-  // 🔥 MAIN SCHEDULE FUNCTION
-  const handleSchedule = () => {
-    if (!selectedDateTime) return;
-
-    const date = selectedDateTime.toLocaleDateString("en-CA"); // ✅ YYYY-MM-DD
-  const time = selectedDateTime.toTimeString().slice(0, 5);
-
-    onSave("scheduled", {
-      scheduledDate: date,
-      scheduledSlot: time,
-    });
-  };
+export default function CreatePostLayout({ profile, platform, selectedPost, onBack }) {
+  const platformMeta = getPlatformMeta(platform);
 
   return (
-    <div style={styles.wrapper}>
-      
-      {/* LEFT */}
-      <div style={styles.left}>
-        <button onClick={onBack} style={styles.backBtn}>← Back</button>
+    <div className="flex flex-col gap-6 lg:flex-row">
+      <div className="flex flex-1 flex-col gap-4 lg:flex-3">
+        <button
+          onClick={onBack}
+          className="mb-1 w-fit rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700
+            transition-all duration-200 hover:-translate-y-0.5 hover:bg-slate-50 dark:border-night-700 dark:bg-night-800 dark:text-slate-200 dark:hover:bg-night-700"
+        >
+          ← Back
+        </button>
 
-        {(isDraft || isSaved || isScheduled) && (
-          <PostEditor
-            {...{ content, setContent, imageUrls, setImageUrls, profile }}
-          />
-        )}
-
-        {isPosted && (
-          <PostPreview post={selectedPost} profile={profile} />
-        )}
+        <PostPreview post={selectedPost} profile={profile} platform={platform} />
       </div>
 
-      {/* RIGHT */}
-      <div style={styles.right}>
+      <div className="flex flex-col gap-4 lg:min-w-80" style={{ flex: "1.2 1 0%" }}>
+        <div
+          style={{ background: platformMeta.surface, borderColor: platformMeta.border }}
+          className="flex items-center gap-3 rounded-2xl border p-4"
+        >
+          <div style={{ background: platformMeta.accent }} className="h-3.5 w-3.5 rounded-full" />
+          <div>
+            <div className="font-bold text-slate-900">{platformMeta.label} post</div>
+            <div className="text-[13px] text-slate-500">Published</div>
+          </div>
+        </div>
 
-        {/* 📝 DRAFT / SAVED */}
-        {(isDraft || isSaved) && (
-          <>
-            <ScheduleBox
-              selectedDateTime={selectedDateTime}
-              setSelectedDateTime={setSelectedDateTime}
-            />
-
-            <div style={styles.actions}>
-              {isDraft && (
-                <button
-                  style={styles.secondaryBtn}
-                  onClick={() => onSave("draft")}
-                >
-                  Save Draft
-                </button>
-              )}
-
-              <button
-                style={styles.primaryBtn}
-                onClick={() => onSave("posted")}
-              >
-                Post Now
-              </button>
-
-              <button
-                style={styles.primaryBtn}
-                onClick={handleSchedule}
-                disabled={!selectedDateTime}
-              >
-                Schedule
-              </button>
-            </div>
-          </>
-        )}
-
-        {/* ⏰ SCHEDULED */}
-        {isScheduled && (
-          <>
-            <div style={styles.infoBox}>
-              Scheduled on{" "}
-              <strong>
-                {selectedPost?.scheduledDate} at {selectedPost?.scheduledSlot}
-              </strong>
-            </div>
-
-            {!showReschedule && (
-              <div style={styles.actions}>
-                <button
-                  style={styles.secondaryBtn}
-                  onClick={() => setShowReschedule(true)}
-                >
-                  Reschedule
-                </button>
-
-                <button
-                  style={styles.dangerBtn}
-                  onClick={() => onSave("draft")}
-                >
-                  Cancel
-                </button>
-              </div>
-            )}
-
-            {showReschedule && (
-              <>
-                <ScheduleBox
-                  selectedDateTime={selectedDateTime}
-                  setSelectedDateTime={setSelectedDateTime}
-                />
-
-                <button
-                  style={styles.primaryBtn}
-                  onClick={handleSchedule}
-                >
-                  Confirm Reschedule
-                </button>
-              </>
-            )}
-          </>
-        )}
-
-        {/* 🚀 POSTED */}
-        {isPosted && (
-          <button
-            style={styles.primaryBtn}
-            onClick={() => window.open(selectedPost?.linkedInUrl)}
-          >
-            View on LinkedIn
-          </button>
-        )}
+        <Button
+          style={{ background: platformMeta.accent }}
+          onClick={() => {
+            const url = getPostExternalUrl(selectedPost);
+            if (url) window.open(url);
+          }}
+        >
+          {platformMeta.buttonText}
+        </Button>
       </div>
     </div>
   );
 }
-
-const styles = {
-wrapper: {
-  display: "flex",
-  gap: "24px",
-  padding: "24px",
-  height: "100vh",              // 🔥 full screen height
-  boxSizing: "border-box",
-},
-
-left: {
-  flex: 3,                     // 🔥 more space
-  display: "flex",
-  flexDirection: "column",
-},
-
-right: {
-  flex: 1.2,
-  display: "flex",
-  flexDirection: "column",
-  gap: "16px",
-  minWidth: "320px",
-},
-
-  backBtn: {
-    marginBottom: "10px",
-    padding: "6px 10px",
-    borderRadius: "8px",
-    border: "1px solid #ccc",
-    cursor: "pointer",
-  },
-
-  actions: {
-    display: "flex",
-    gap: "10px",
-    flexWrap: "wrap",
-  },
-
-  primaryBtn: {
-    background: "#0A66C2",
-    color: "#fff",
-    border: "none",
-    padding: "10px 14px",
-    borderRadius: "10px",
-    cursor: "pointer",
-    fontWeight: "600",
-  },
-
-  secondaryBtn: {
-    background: "#f1f5f9",
-    border: "1px solid #d1d5db",
-    padding: "10px 14px",
-    borderRadius: "10px",
-    cursor: "pointer",
-  },
-
-  dangerBtn: {
-    background: "#ef4444",
-    color: "#fff",
-    border: "none",
-    padding: "10px 14px",
-    borderRadius: "10px",
-    cursor: "pointer",
-  },
-
-  infoBox: {
-    background: "#f0f9ff",
-    border: "1px solid #bae6fd",
-    padding: "12px",
-    borderRadius: "12px",
-    fontSize: "14px",
-  },
-};

@@ -7,10 +7,12 @@ export default function ScheduleBox({
 }) {
   return (
     <>
-      <div style={styles.container}>
-        <label style={styles.label}>Select Date & Time</label>
+      <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition-colors duration-200 dark:border-night-700 dark:bg-night-800">
+        <label className="mb-3 block text-sm font-semibold text-slate-900 dark:text-white">
+          Select Date & Time
+        </label>
 
-        <div style={styles.inputWrapper}>
+        <div className="w-full">
           <DatePicker
             selected={selectedDateTime}
             onChange={(date) => setSelectedDateTime(date)}
@@ -26,7 +28,6 @@ export default function ScheduleBox({
             }
             maxTime={new Date().setHours(23, 59)}
             placeholderText="Select schedule time"
-
             customInput={<CustomInput />}
             popperClassName="custom-popper"
             calendarClassName="custom-calendar"
@@ -34,7 +35,6 @@ export default function ScheduleBox({
         </div>
       </div>
 
-      {/* 🔥 STYLE FIX HERE */}
       <style>
         {`
         .custom-calendar {
@@ -42,7 +42,7 @@ export default function ScheduleBox({
           border: 1px solid #e5e7eb !important;
           box-shadow: 0 10px 30px rgba(0,0,0,0.1) !important;
           overflow: hidden;
-          font-family: sans-serif;
+          font-family: Inter, sans-serif;
         }
 
         .custom-calendar .react-datepicker__header {
@@ -67,11 +67,11 @@ export default function ScheduleBox({
         }
 
         .custom-calendar .react-datepicker__day:hover {
-          background: #e0f2fe;
+          background: #d1fae5;
         }
 
         .custom-calendar .react-datepicker__day--selected {
-          background: #0A66C2 !important;
+          background: #059669 !important;
           color: white;
         }
 
@@ -89,16 +89,47 @@ export default function ScheduleBox({
         }
 
         .custom-calendar .react-datepicker__time-list-item:hover {
-          background: #e0f2fe;
+          background: #d1fae5;
         }
 
         .custom-calendar .react-datepicker__time-list-item--selected {
-          background: #0A66C2 !important;
+          background: #059669 !important;
           color: white;
         }
 
         .custom-calendar .react-datepicker__triangle {
           display: none;
+        }
+
+        .dark .custom-calendar {
+          border-color: #384540 !important;
+          background: #212a26;
+        }
+
+        .dark .custom-calendar .react-datepicker__header {
+          background: #141b17;
+          border-color: #384540;
+        }
+
+        .dark .custom-calendar .react-datepicker__current-month,
+        .dark .custom-calendar .react-datepicker__day-name,
+        .dark .custom-calendar .react-datepicker__day,
+        .dark .custom-calendar .react-datepicker__time-list-item {
+          color: #e2e8f0;
+        }
+
+        .dark .custom-calendar .react-datepicker__day:hover,
+        .dark .custom-calendar .react-datepicker__time-list-item:hover {
+          background: #384540;
+        }
+
+        .dark .custom-calendar .react-datepicker__time-container {
+          border-color: #384540;
+        }
+
+        .dark .custom-calendar .react-datepicker__day--disabled,
+        .dark .custom-calendar .react-datepicker__day--outside-month {
+          color: #475569;
         }
         `}
       </style>
@@ -106,63 +137,17 @@ export default function ScheduleBox({
   );
 }
 
-/* CUSTOM INPUT */
 function CustomInput({ value, onClick }) {
   return (
-    <div style={styles.inputBox} onClick={onClick}>
-      <span style={value ? styles.valueText : styles.placeholder}>
+    <div
+      onClick={onClick}
+      className="flex w-full cursor-pointer items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-3.5
+        py-3 transition-all duration-200 hover:border-brand-400 dark:border-night-700 dark:bg-night-900"
+    >
+      <span className={`text-sm ${value ? "text-slate-900 dark:text-slate-100" : "text-slate-400"}`}>
         {value || "Select schedule time"}
       </span>
-      <span style={styles.icon}>📅</span>
+      <span className="text-base opacity-70">📅</span>
     </div>
   );
 }
-
-const styles = {
-  container: {
-    background: "#ffffff",
-    padding: "20px",
-    borderRadius: "18px",
-    border: "1px solid #e5e7eb",
-    boxShadow: "0 6px 20px rgba(0,0,0,0.05)",
-  },
-
-  label: {
-    fontWeight: "600",
-    marginBottom: "12px",
-    display: "block",
-    fontSize: "15px",
-    color: "#111827",
-  },
-
-  inputWrapper: {
-    width: "100%",
-  },
-
-  inputBox: {
-    width: "100%",
-    padding: "12px 14px",
-    borderRadius: "12px",
-    border: "1px solid #e5e7eb",
-    background: "#f9fafb",
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    cursor: "pointer",
-  },
-
-  valueText: {
-    fontSize: "14px",
-    color: "#111827",
-  },
-
-  placeholder: {
-    fontSize: "14px",
-    color: "#9ca3af",
-  },
-
-  icon: {
-    fontSize: "16px",
-    opacity: 0.7,
-  },
-};

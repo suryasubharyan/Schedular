@@ -2,5 +2,5 @@
 import axios from "./axios";
 
 export const getAvailabilityAPI = (date) => {
-  return axios.get(`/availability/${date}`);
+  return axios.get(`/api/availability/${date}`);
 };
