@@ -1,6 +1,9 @@
 import axios from "axios";
 
-const BASE_URL = import.meta.env.VITE_API_URL_LOCAL || "http://localhost:5000";
+// Single source of truth for the backend origin. Set VITE_API_URL per
+// deployment environment (e.g. in Vercel's Production env vars) — don't add
+// a VITE_API_URL_PROD sibling, Vite/Vercel already scope this per environment.
+export const BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
 
 const instance = axios.create({
   baseURL: BASE_URL,

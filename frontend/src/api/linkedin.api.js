@@ -1,6 +1,4 @@
-import axios from "./axios";
-
-const BASE_URL = import.meta.env.VITE_API_URL_LOCAL || "http://localhost:5000";
+import axios, { BASE_URL } from "./axios";
 
 export const connectLinkedIn = () => {
   window.location.href = `${BASE_URL}/api/linkedin/connect`;
