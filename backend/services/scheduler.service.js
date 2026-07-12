@@ -1,16 +1,13 @@
 import cron from "node-cron";
 import Post from "../models/Post.js";
-import LinkedInAccount from "../models/LinkedInAccount.js";
-import { createLinkedInPost } from "./linkedin.service.js";
+import { getSocialAccountForUser } from "./social-account.service.js";
+import { publishSocialPost } from "./social-publish.service.js";
 
 const startScheduler = () => {
   cron.schedule("* * * * *", async () => {
-    console.log("⏰ Checking scheduled posts...");
-
     try {
-      const now = new Date();
+      const now = new Date(new Date().toISOString());
 
-      // 🔥 STEP 1: FETCH POSTS
       const posts = await Post.find({
         status: "scheduled",
         scheduledTime: { $lte: now },
@@ -19,14 +16,13 @@ const startScheduler = () => {
         .limit(10);
 
       if (!posts.length) {
-        console.log("📭 No posts to publish");
         return;
       }
 
-      // 🔥 STEP 2: PROCESS EACH POST
+      console.log(`Scheduler: publishing ${posts.length} due post(s)...`);
+
       for (const post of posts) {
         try {
-          // 🔒 LOCK (avoid duplicate processing)
           const lockedPost = await Post.findOneAndUpdate(
             {
               _id: post._id,
@@ -40,47 +36,36 @@ const startScheduler = () => {
 
           if (!lockedPost) continue;
 
-          // 🔥 STEP 3: GET LINKEDIN ACCOUNT (FIXED)
-          const account = await LinkedInAccount.findById(
-            lockedPost.accountId
+          const account = await getSocialAccountForUser(
+            lockedPost.userId,
+            lockedPost.platform
           );
 
-          if (!account || !account.accessToken) {
-            console.log("❌ No LinkedIn account");
+          if (!account || !account.connected) {
+            console.log(`No connected account for ${lockedPost.platform}`);
             await Post.findByIdAndUpdate(lockedPost._id, {
               status: "failed",
             });
             continue;
           }
 
-          // 🚀 STEP 4: POST TO LINKEDIN
-          let linkedInUrl = "";
+          const publishResult = await publishSocialPost({
+            platform: lockedPost.platform,
+            account,
+            post: lockedPost,
+          });
 
-          if (lockedPost.platform === "linkedin") {
-            linkedInUrl = await createLinkedInPost({
-              accessToken: account.accessToken,
-              linkedinId: account.linkedinId,
-              content: lockedPost.content,
-              imageUrls:
-                lockedPost.imageUrls?.length
-                  ? lockedPost.imageUrls
-                  : [],
-            });
-          }
-
-          // ✅ STEP 5: MARK SUCCESS
           await Post.findByIdAndUpdate(lockedPost._id, {
             status: "posted",
-            linkedInUrl: linkedInUrl || "",
+            linkedInUrl: publishResult.linkedInUrl || "",
+            publishedUrl: publishResult.publishedUrl || "",
             retryCount: 0,
           });
 
-          console.log(`✅ Posted: ${lockedPost._id}`);
-
+          console.log(`Posted: ${lockedPost._id}`);
         } catch (error) {
-          console.log(`❌ Failed: ${post._id}`, error.message);
+          console.log(`Failed: ${post._id}`, error.message);
 
-          // 🔁 RETRY LOGIC
           const retryPost = await Post.findById(post._id);
 
           if (!retryPost) continue;
@@ -97,9 +82,8 @@ const startScheduler = () => {
           }
         }
       }
-
     } catch (err) {
-      console.error("🚨 Scheduler Error:", err.message);
+      console.error("Scheduler Error:", err.message);
     }
   });
 };

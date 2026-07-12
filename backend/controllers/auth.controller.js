@@ -2,6 +2,7 @@ import bcrypt from "bcrypt";
 import { SignJWT, jwtVerify } from "jose";
 import User from "../models/User.js";
 import { OAuth2Client } from "google-auth-library";
+import { getUserFriendlyError } from "../utils/errorMessage.js";
 
 const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET);
 if (!process.env.JWT_SECRET) {
@@ -79,7 +80,9 @@ export const register = async (req, res) => {
     });
   } catch (error) {
     console.error("Register error:", error);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({
+      error: getUserFriendlyError(error, "Couldn't create your account. Please try again."),
+    });
   }
 };
 
@@ -130,7 +133,9 @@ export const login = async (req, res) => {
     });
   } catch (error) {
     console.error("Login error:", error);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({
+      error: getUserFriendlyError(error, "Couldn't log you in. Please try again."),
+    });
   }
 };
 
@@ -253,7 +258,10 @@ export const getCurrentUser = async (req, res) => {
       user: serializeUser(user),
     });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error("Get current user error:", error);
+    res.status(500).json({
+      error: getUserFriendlyError(error, "Couldn't load your account. Please try again."),
+    });
   }
 };
 
@@ -300,7 +308,10 @@ export const updateProfile = async (req, res) => {
       user: serializeUser(user),
     });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error("Update profile error:", error);
+    res.status(500).json({
+      error: getUserFriendlyError(error, "Couldn't update your profile. Please try again."),
+    });
   }
 };
 

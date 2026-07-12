@@ -12,4 +12,5 @@ connectDB();
 app.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT} (${process.env.ENV})`);
   startScheduler();
+  console.log("⏰ Post scheduler running — checking for due posts every minute");
 });

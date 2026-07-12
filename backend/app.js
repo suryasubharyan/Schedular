@@ -6,6 +6,7 @@ import config from "./config/env.js";
 // Routes
 import authRoutes from "./routes/auth.routes.js";
 import linkedinRoutes from "./routes/linkedin.routes.js";
+import socialRoutes from "./routes/social.routes.js";
 import postRoutes from "./routes/post.routes.js";
 import availabilityRoutes from "./routes/availability.routes.js";
 const app = express();
@@ -54,6 +55,7 @@ app.get("/", (req, res) => {
  */
 app.use("/api/auth", authRoutes);
 app.use("/api/linkedin", linkedinRoutes);
+app.use("/api/social", socialRoutes);
 app.use("/api/posts", postRoutes);
 app.use("/api/availability", availabilityRoutes);
 

@@ -13,6 +13,10 @@ const config = {
     ENV === "local"
       ? process.env.MONGO_URI_LOCAL
       : process.env.MONGO_URI_PROD,
+  backendUrl:
+    ENV === "local"
+      ? process.env.BACKEND_URL_LOCAL || `http://localhost:${process.env.PORT || 5000}`
+      : process.env.BACKEND_URL_PROD || `http://localhost:${process.env.PORT || 5000}`,
 
   redirectUri:
     ENV === "local"

@@ -6,7 +6,7 @@ const postSchema = new mongoose.Schema(
 
     accountId : {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "LinkedInAccount",
+      ref: "SocialAccount",
       required: true,
     },
 
@@ -25,6 +25,17 @@ const postSchema = new mongoose.Schema(
       default: [],
     },
 
+    videoUrl: {
+      type: String,
+      default: "",
+    },
+
+    mediaType: {
+      type: String,
+      enum: ["text", "image", "video", "mixed"],
+      default: "text",
+    },
+
     scheduledDate: String,
     scheduledSlot: String,
     scheduledTime: Date,
@@ -36,6 +47,11 @@ const postSchema = new mongoose.Schema(
     },
 
     linkedInUrl: {
+      type: String,
+      default: "",
+    },
+
+    publishedUrl: {
       type: String,
       default: "",
     },

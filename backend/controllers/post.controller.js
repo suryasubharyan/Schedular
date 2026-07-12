@@ -1,19 +1,130 @@
 import Post from "../models/Post.js";
-import LinkedInAccount from "../models/LinkedInAccount.js";
-import { createLinkedInPost } from "../services/linkedin.service.js";
 import Availability from "../models/Availability.js";
+import {
+  getPlatformConfig,
+  getSocialAccountForUser,
+  normalizePlatform,
+} from "../services/social-account.service.js";
+import { publishSocialPost } from "../services/social-publish.service.js";
 
-const convertTo24Hour = (time) => {
-  const [timePart, modifier] = time.split(" ");
-  let [hours, minutes] = timePart.split(":").map(Number);
+const BAD_REQUEST_MESSAGES = [
+  "Content is required",
+  "Date & time required",
+  "Slot already booked",
+  "Time must be future",
+  "Future time required",
+];
 
-  if (modifier === "PM" && hours !== 12) hours += 12;
-  if (modifier === "AM" && hours === 12) hours = 0;
+const normalizeImages = (imageUrl, imageUrls, maxImages) => {
+  const images = Array.isArray(imageUrls)
+    ? imageUrls.filter(Boolean)
+    : imageUrl
+    ? [imageUrl]
+    : [];
 
-  return { hours, minutes };
+  return images.slice(0, maxImages);
 };
 
-// ✅ CREATE POST
+const buildMediaType = ({ imageUrls = [], videoUrl = "" }) => {
+  if (videoUrl && imageUrls.length) return "mixed";
+  if (videoUrl) return "video";
+  if (imageUrls.length) return "image";
+  return "text";
+};
+
+const buildScheduledTime = (scheduledDate, scheduledSlot) => {
+  const [hours, minutes] = scheduledSlot.split(":").map(Number);
+  const scheduledTime = new Date(scheduledDate);
+  scheduledTime.setHours(hours, minutes, 0, 0);
+  return scheduledTime;
+};
+
+const releaseAvailabilitySlot = async ({ userId, scheduledDate, scheduledSlot }) => {
+  if (!scheduledDate || !scheduledSlot) return;
+
+  await Availability.updateOne(
+    { userId, date: scheduledDate },
+    { $pull: { bookedSlots: scheduledSlot } }
+  );
+};
+
+const reserveAvailabilitySlot = async ({
+  userId,
+  scheduledDate,
+  scheduledSlot,
+  previousSlot,
+}) => {
+  try {
+    if (previousSlot) {
+      await releaseAvailabilitySlot({
+        userId,
+        scheduledDate: previousSlot.scheduledDate,
+        scheduledSlot: previousSlot.scheduledSlot,
+      });
+    }
+
+    const result = await Availability.findOneAndUpdate(
+      {
+        userId,
+        date: scheduledDate,
+        bookedSlots: { $ne: scheduledSlot },
+      },
+      {
+        $push: { bookedSlots: scheduledSlot },
+      },
+      { upsert: true, new: true }
+    );
+
+    if (!result) {
+      throw new Error("Slot already booked");
+    }
+  } catch (error) {
+    if (error?.code === 11000) {
+      throw new Error("Slot already booked");
+    }
+
+    throw error;
+  }
+};
+
+const validateMediaForPlatform = ({ platform, imageUrls, videoUrl }) => {
+  const config = getPlatformConfig(platform);
+
+  if (imageUrls.length > config.maxImages) {
+    throw new Error(`Only ${config.maxImages} images allowed for ${config.label}`);
+  }
+
+  if (videoUrl && !config.supportsVideo) {
+    throw new Error(`${config.label} does not support video publishing`);
+  }
+};
+
+const validatePostPayload = ({ content, status, scheduledDate, scheduledSlot }) => {
+  if (!content?.trim()) {
+    throw new Error("Content is required");
+  }
+
+  if (status === "scheduled" && (!scheduledDate || !scheduledSlot)) {
+    throw new Error("Date & time required");
+  }
+};
+
+const applySharedPostFields = ({
+  post,
+  accountId,
+  platform,
+  content,
+  imageUrls,
+  videoUrl,
+}) => {
+  post.accountId = accountId;
+  post.platform = platform;
+  post.content = content.trim();
+  post.imageUrls = imageUrls;
+  post.videoUrl = videoUrl || "";
+  post.mediaType = buildMediaType({ imageUrls, videoUrl });
+};
+
 export const createPost = async (req, res) => {
   try {
     const {
@@ -21,108 +132,94 @@ export const createPost = async (req, res) => {
       platform = "linkedin",
       imageUrl,
       imageUrls,
+      videoUrl = "",
       scheduledDate,
       scheduledSlot,
       status = "draft",
     } = req.body;
 
+    validatePostPayload({ content, status, scheduledDate, scheduledSlot });
+
     const userId = req.user.userId;
+    const normalizedPlatform = normalizePlatform(platform);
+    const platformConfig = getPlatformConfig(normalizedPlatform);
+    const normalizedImages = normalizeImages(
+      imageUrl,
+      imageUrls,
+      platformConfig.maxImages
+    );
 
-    if (!content) {
-      return res.status(400).json({ error: "Content is required" });
-    }
+    validateMediaForPlatform({
+      platform: normalizedPlatform,
+      imageUrls: normalizedImages,
+      videoUrl,
+    });
 
-    const normalizedImages = Array.isArray(imageUrls)
-      ? imageUrls.slice(0, 10).filter(Boolean)
-      : imageUrl
-      ? [imageUrl]
-      : [];
-
-    // 🔥 GET ACCOUNT
-    const account = await LinkedInAccount.findOne({
-      userId,
-      connected: true,
-    }).sort({ createdAt: -1 });
-
+    const account = await getSocialAccountForUser(userId, normalizedPlatform);
     if (!account) {
-      return res.status(400).json({ error: "LinkedIn not connected" });
+      return res.status(400).json({
+        error: `${platformConfig.label} not connected`,
+      });
     }
 
     let scheduledTime = null;
 
-    // 🔥 SCHEDULE
     if (status === "scheduled") {
-      if (!scheduledDate || !scheduledSlot) {
-        return res.status(400).json({
-          error: "Date & time required",
-        });
-      }
-
-      const [hours, minutes] = scheduledSlot.split(":").map(Number);
-
-      scheduledTime = new Date(scheduledDate);
-      scheduledTime.setHours(hours, minutes, 0, 0);
+      scheduledTime = buildScheduledTime(scheduledDate, scheduledSlot);
 
       if (scheduledTime < new Date()) {
         return res.status(400).json({ error: "Time must be future" });
       }
 
-      // 🔥 ATOMIC SLOT LOCK
-      const result = await Availability.findOneAndUpdate(
-        {
+      try {
+        await reserveAvailabilitySlot({
           userId,
-          date: scheduledDate,
-          bookedSlots: { $ne: scheduledSlot },
-        },
-        {
-          $push: { bookedSlots: scheduledSlot },
-        },
-        { upsert: true, new: true }
-      );
-
-      if (!result) {
-        return res.status(400).json({ error: "Slot already booked" });
+          scheduledDate,
+          scheduledSlot,
+        });
+      } catch (slotError) {
+        return res.status(400).json({ error: slotError.message });
       }
     }
 
-    // 🚀 POST NOW
-    if (status === "posted") {
-      const linkedInUrl = await createLinkedInPost({
-        accessToken: account.accessToken,
-        linkedinId: account.linkedinId,
-        content,
-        imageUrls: normalizedImages,
-      });
-
-      const post = await Post.create({
-        content,
-        userId,
-        accountId: account._id,
-        imageUrls: normalizedImages,
-        scheduledTime: new Date(),
-        status,
-        linkedInUrl,
-      });
-
-      return res.json({ success: true, post });
-    }
-
-    // 📝 SAVE
     const post = await Post.create({
-      content,
+      content: content.trim(),
       userId,
       accountId: account._id,
+      platform: normalizedPlatform,
       imageUrls: normalizedImages,
+      videoUrl,
+      mediaType: buildMediaType({
+        imageUrls: normalizedImages,
+        videoUrl,
+      }),
       scheduledDate,
       scheduledSlot,
-      scheduledTime,
+      scheduledTime: status === "posted" ? new Date() : scheduledTime,
       status,
     });
 
-    res.json({ success: true, post });
+    if (status === "posted") {
+      const publishResult = await publishSocialPost({
+        platform: normalizedPlatform,
+        account,
+        post,
+      });
 
+      post.linkedInUrl = publishResult.linkedInUrl || "";
+      post.publishedUrl = publishResult.publishedUrl || "";
+      await post.save();
+    }
+
+    res.json({ success: true, post });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    const statusCode =
+      BAD_REQUEST_MESSAGES.includes(error.message) ||
+      error.message.includes("images allowed") ||
+      error.message.includes("does not support video publishing")
+        ? 400
+        : 500;
+    res.status(statusCode).json({ error: error.message });
   }
 };
 
@@ -130,120 +227,160 @@ export const updatePost = async (req, res) => {
   try {
     const { id } = req.params;
     const userId = req.user.userId;
-
     const post = await Post.findOne({ _id: id, userId });
-    if (!post) return res.status(404).json({ error: "Not found" });
+
+    if (!post) {
+      return res.status(404).json({ error: "Not found" });
+    }
 
     const {
       content,
-      status,
+      status = post.status,
+      platform = post.platform,
       imageUrl,
       imageUrls,
+      videoUrl,
       scheduledDate,
       scheduledSlot,
     } = req.body;
 
-    const normalizedImages = Array.isArray(imageUrls)
-      ? imageUrls.slice(0, 10).filter(Boolean)
-      : imageUrl
-      ? [imageUrl]
-      : [];
+    const nextContent = content ?? post.content;
+    const nextPlatform = normalizePlatform(platform);
+    const platformConfig = getPlatformConfig(nextPlatform);
+    const normalizedImages = normalizeImages(
+      imageUrl,
+      imageUrls,
+      platformConfig.maxImages
+    );
+    const nextImages =
+      Array.isArray(imageUrls) || imageUrl !== undefined ? normalizedImages : post.imageUrls;
+    const nextVideoUrl = typeof videoUrl === "string" ? videoUrl : post.videoUrl || "";
 
-    const account = await LinkedInAccount.findById(post.accountId);
+    validatePostPayload({
+      content: nextContent,
+      status,
+      scheduledDate,
+      scheduledSlot,
+    });
 
-    // 🔥 RESCHEDULE
-    if (status === "scheduled") {
-      const [hours, minutes] = scheduledSlot.split(":").map(Number);
+    validateMediaForPlatform({
+      platform: nextPlatform,
+      imageUrls: nextImages,
+      videoUrl: nextVideoUrl,
+    });
 
-      const scheduledTime = new Date(scheduledDate);
-      scheduledTime.setHours(hours, minutes, 0, 0);
-
-      if (scheduledTime < new Date()) {
-        return res.status(400).json({ error: "Future time required" });
-      }
-
-      // ❌ REMOVE OLD SLOT
-      if (post.scheduledDate && post.scheduledSlot) {
-        await Availability.updateOne(
-          { userId, date: post.scheduledDate },
-          { $pull: { bookedSlots: post.scheduledSlot } }
-        );
-      }
-
-      // ✅ NEW SLOT LOCK
-      const result = await Availability.findOneAndUpdate(
-        {
-          userId,
-          date: scheduledDate,
-          bookedSlots: { $ne: scheduledSlot },
-        },
-        {
-          $push: { bookedSlots: scheduledSlot },
-        },
-        { upsert: true, new: true }
-      );
-
-      if (!result) {
-        return res.status(400).json({ error: "Slot already booked" });
-      }
-
-      post.scheduledDate = scheduledDate;
-      post.scheduledSlot = scheduledSlot;
-      post.scheduledTime = scheduledTime;
-      post.status = "scheduled";
+    const account = await getSocialAccountForUser(userId, nextPlatform);
+    if (!account) {
+      return res.status(400).json({
+        error: `${platformConfig.label} not connected`,
+      });
     }
 
-    // 🚀 POST NOW
-    if (status === "posted") {
-      const linkedInUrl = await createLinkedInPost({
-        accessToken: account.accessToken,
-        linkedinId: account.linkedinId,
-        content: content || post.content,
-        imageUrls: normalizedImages.length
-          ? normalizedImages
-          : post.imageUrls,
+    applySharedPostFields({
+      post,
+      accountId: account._id,
+      platform: nextPlatform,
+      content: nextContent,
+      imageUrls: nextImages,
+      videoUrl: nextVideoUrl,
+    });
+
+    if (status === "draft" || status === "saved") {
+      await releaseAvailabilitySlot({
+        userId,
+        scheduledDate: post.scheduledDate,
+        scheduledSlot: post.scheduledSlot,
       });
 
-      post.status = "posted";
-      post.linkedInUrl = linkedInUrl;
-
-      // cleanup
+      post.status = status;
       post.scheduledDate = null;
       post.scheduledSlot = null;
       post.scheduledTime = null;
     }
 
-    if (content) post.content = content;
-    if (normalizedImages.length) post.imageUrls = normalizedImages;
+    if (status === "scheduled") {
+      const nextScheduledTime = buildScheduledTime(scheduledDate, scheduledSlot);
+
+      if (nextScheduledTime < new Date()) {
+        return res.status(400).json({ error: "Future time required" });
+      }
+
+      try {
+        await reserveAvailabilitySlot({
+          userId,
+          scheduledDate,
+          scheduledSlot,
+          previousSlot:
+            post.scheduledDate && post.scheduledSlot
+              ? {
+                  scheduledDate: post.scheduledDate,
+                  scheduledSlot: post.scheduledSlot,
+                }
+              : null,
+        });
+      } catch (slotError) {
+        return res.status(400).json({ error: slotError.message });
+      }
+
+      post.status = "scheduled";
+      post.scheduledDate = scheduledDate;
+      post.scheduledSlot = scheduledSlot;
+      post.scheduledTime = nextScheduledTime;
+    }
+
+    if (status === "posted") {
+      await releaseAvailabilitySlot({
+        userId,
+        scheduledDate: post.scheduledDate,
+        scheduledSlot: post.scheduledSlot,
+      });
+
+      const publishResult = await publishSocialPost({
+        platform: nextPlatform,
+        account,
+        post,
+      });
+
+      post.status = "posted";
+      post.linkedInUrl = publishResult.linkedInUrl || "";
+      post.publishedUrl = publishResult.publishedUrl || "";
+      post.scheduledDate = null;
+      post.scheduledSlot = null;
+      post.scheduledTime = null;
+    }
 
     await post.save();
 
     res.json({ success: true, post });
-
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    const statusCode =
+      BAD_REQUEST_MESSAGES.includes(err.message) ||
+      err.message.includes("images allowed") ||
+      err.message.includes("does not support video publishing")
+        ? 400
+        : 500;
+    res.status(statusCode).json({ error: err.message });
   }
 };
-// ✅ GET POSTS
+
 export const getPosts = async (req, res) => {
   try {
     const userId = req.user.userId;
-    const { status, accountId } = req.query;
+    const { status, accountId, platform } = req.query;
 
     const filter = { userId };
 
     if (accountId) filter.accountId = accountId;
     if (status) filter.status = status;
+    if (platform) filter.platform = normalizePlatform(platform);
 
     const posts = await Post.find(filter).sort({ createdAt: -1 });
-
     res.json(posts);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 };
 
-// ✅ GET SINGLE POST
 export const getSinglePost = async (req, res) => {
   try {
     const post = await Post.findOne({
@@ -261,10 +398,6 @@ export const getSinglePost = async (req, res) => {
   }
 };
 
-// ✅ UPDATE POST
-
-
-// ✅ DELETE POST
 export const deletePost = async (req, res) => {
   try {
     const userId = req.user.userId;
@@ -274,15 +407,13 @@ export const deletePost = async (req, res) => {
 
     if (!post) return res.status(404).json({ error: "Not found" });
 
-    if (post.scheduledDate && post.scheduledSlot) {
-      await Availability.updateOne(
-        { userId, date: post.scheduledDate },
-        { $pull: { bookedSlots: post.scheduledSlot } }
-      );
-    }
+    await releaseAvailabilitySlot({
+      userId,
+      scheduledDate: post.scheduledDate,
+      scheduledSlot: post.scheduledSlot,
+    });
 
     res.json({ success: true });
-
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
