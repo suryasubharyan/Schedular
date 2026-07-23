@@ -59,6 +59,11 @@ src/
   lib/          → platforms.js — single source of truth for platform metadata (label, icon,
                   ordering) so every screen that lists platforms reads from one place
 ``` 
+
+?? this is test 22
+
+?? this is test 22
+
 ?? this is test 22
 **Why this matters as an answer:** "If I add a 5th platform, I touch `lib/platforms.js` and one service file on the backend — not ten different components."
 
