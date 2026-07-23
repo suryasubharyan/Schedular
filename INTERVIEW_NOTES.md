@@ -58,8 +58,8 @@ src/
   pages/        → Landing, Auth, Dashboard, Calendar, Platforms, Settings, Analytics
   lib/          → platforms.js — single source of truth for platform metadata (label, icon,
                   ordering) so every screen that lists platforms reads from one place
-```
-?? this is test
+``` 
+?? this is test 22
 **Why this matters as an answer:** "If I add a 5th platform, I touch `lib/platforms.js` and one service file on the backend — not ten different components."
 
 ### 4.2 Routing — React Router v7
