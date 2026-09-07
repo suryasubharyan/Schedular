@@ -60,9 +60,6 @@ const socialAccountSchema = new mongoose.Schema(
   }
 );
 
-socialAccountSchema.index(
-  { userId: 1, platform: 1, platformUserId: 1 },
-  { unique: true }
-);
+socialAccountSchema.index({ userId: 1, platform: 1, platformUserId: 1 }, { unique: true });
 
 export default mongoose.model("SocialAccount", socialAccountSchema);

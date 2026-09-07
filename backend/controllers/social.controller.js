@@ -1,13 +1,13 @@
-import User from "../models/User.js";
-import SocialAccount from "../models/SocialAccount.js";
+import User from "../models/user.model.js";
 import {
   createDemoSocialAccount,
   getSocialAccountsSummary,
   getSocialAccountForUser,
   normalizePlatform,
   upsertSocialAccount,
+  disconnectSocialAccount,
 } from "../services/social-account.service.js";
-import config from "../config/env.js";
+import config from "../config/env.config.js";
 import {
   buildPlatformAuthorizationUrl,
   getSocialProviderConfig,
@@ -147,13 +147,7 @@ export const getSocialAccount = async (req, res) => {
 
 export const disconnectSocialPlatform = async (req, res) => {
   try {
-    const platform = normalizePlatform(req.params.platform);
-
-    await SocialAccount.updateMany(
-      { userId: req.user.userId, platform },
-      { connected: false, accessToken: "" }
-    );
-
+    await disconnectSocialAccount(req.user.userId, req.params.platform);
     res.json({ success: true });
   } catch (error) {
     res.status(500).json({ error: error.message });

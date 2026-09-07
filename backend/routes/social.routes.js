@@ -1,5 +1,5 @@
 import express from "express";
-import verifyJWT from "../middleware/verifyJWT.js";
+import verifyJWT from "../middleware/auth.middleware.js";
 import {
   connectSocialPlatformXHR,
   connectSocialPlatform,
@@ -12,10 +12,10 @@ import {
 const router = express.Router();
 
 router.get("/accounts", verifyJWT, getSocialAccounts);
-router.get("/account/:platform", verifyJWT, getSocialAccount);
-router.get("/connect/:platform", verifyJWT, connectSocialPlatform);
-router.get("/callback/:platform", socialOAuthCallback);
-router.post("/connect/:platform", verifyJWT, connectSocialPlatformXHR);
-router.post("/disconnect/:platform", verifyJWT, disconnectSocialPlatform);
+router.get("/accounts/:platform", verifyJWT, getSocialAccount);
+router.get("/accounts/:platform/authorize", verifyJWT, connectSocialPlatform);
+router.get("/accounts/:platform/callback", socialOAuthCallback);
+router.post("/accounts/:platform", verifyJWT, connectSocialPlatformXHR);
+router.delete("/accounts/:platform", verifyJWT, disconnectSocialPlatform);
 
 export default router;

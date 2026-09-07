@@ -1,5 +1,5 @@
-import LinkedInAccount from "../models/LinkedInAccount.js";
-import SocialAccount from "../models/SocialAccount.js";
+import LinkedInAccount from "../models/linkedin-account.model.js";
+import SocialAccount from "../models/social-account.model.js";
 import { getSocialProviderConfig } from "./social-provider.service.js";
 
 const PLATFORM_LABELS = {
@@ -36,19 +36,14 @@ export const PLATFORM_CONFIG = {
   },
 };
 
-export const getPlatformConfig = (platform = "linkedin") =>
-  PLATFORM_CONFIG[platform] || PLATFORM_CONFIG.linkedin;
+export const getPlatformConfig = (platform = "linkedin") => PLATFORM_CONFIG[platform] || PLATFORM_CONFIG.linkedin;
 
-export const normalizePlatform = (platform = "linkedin") =>
-  PLATFORM_CONFIG[platform] ? platform : "linkedin";
+export const normalizePlatform = (platform = "linkedin") => (PLATFORM_CONFIG[platform] ? platform : "linkedin");
 
-export const formatPlatformLabel = (platform = "linkedin") =>
-  PLATFORM_LABELS[normalizePlatform(platform)] || "LinkedIn";
+export const formatPlatformLabel = (platform = "linkedin") => PLATFORM_LABELS[normalizePlatform(platform)] || "LinkedIn";
 
 const buildDefaultUsername = ({ email, name, platform }) =>
-  email?.split("@")?.[0] ||
-  name?.replace(/\s+/g, "").toLowerCase() ||
-  `${platform}-user`;
+  email?.split("@")?.[0] || name?.replace(/\s+/g, "").toLowerCase() || `${platform}-user`;
 
 const buildAccountSummary = (platform, account) => ({
   platform,
@@ -96,11 +91,13 @@ export const upsertSocialAccount = async ({
       tokenType,
       scopes,
       tokenExpiresAt,
-      username: profile.username || buildDefaultUsername({
-        email: profile.email,
-        name: profile.name,
-        platform,
-      }),
+      username:
+        profile.username ||
+        buildDefaultUsername({
+          email: profile.email,
+          name: profile.name,
+          platform,
+        }),
       name: profile.name,
       email: profile.email,
       bio: profile.bio,
@@ -117,15 +114,16 @@ export const upsertSocialAccount = async ({
     }
   );
 
-const buildLinkedInProfile = (account) => buildAccountSummary("linkedin", {
-  _id: account?._id,
-  connected: account?.connected,
-  name: account?.name,
-  email: account?.email,
-  username: account?.email?.split("@")?.[0] || "linkedin-user",
-  profilePicture: account?.profilePicture,
-  profileHeadline: "Professional update",
-});
+const buildLinkedInProfile = (account) =>
+  buildAccountSummary("linkedin", {
+    _id: account?._id,
+    connected: account?.connected,
+    name: account?.name,
+    email: account?.email,
+    username: account?.email?.split("@")?.[0] || "linkedin-user",
+    profilePicture: account?.profilePicture,
+    profileHeadline: "Professional update",
+  });
 
 export const ensureSocialAccountFromLinkedIn = async (linkedinAccount) => {
   if (!linkedinAccount?.connected) {
@@ -229,10 +227,7 @@ export const createDemoSocialAccount = async ({ user, platform }) => {
       email: user.email,
       bio: `Publishing through ${PLATFORM_LABELS[normalizedPlatform]}.`,
       profilePicture: user.customProfilePicture || user.profilePicture || "",
-      profileHeadline:
-        normalizedPlatform === "linkedin"
-          ? user.headline || "Content strategist"
-          : undefined,
+      profileHeadline: normalizedPlatform === "linkedin" ? user.headline || "Content strategist" : undefined,
     },
     metadata: {
       source: normalizedPlatform === "linkedin" ? "oauth" : "demo-connect",
@@ -244,3 +239,12 @@ export const createDemoSocialAccount = async ({ user, platform }) => {
 };
 
 export const getLegacyLinkedInSummary = (account) => buildLinkedInProfile(account);
+
+export const disconnectSocialAccount = async (userId, platform) => {
+  const normalizedPlatform = normalizePlatform(platform);
+
+  await SocialAccount.updateMany(
+    { userId, platform: normalizedPlatform },
+    { connected: false, accessToken: "" }
+  );
+};

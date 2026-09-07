@@ -1,23 +1,5 @@
 import axios from "axios";
-
-const parseDataUrl = (dataUrl) => {
-  if (typeof dataUrl !== "string") {
-    throw new Error("Invalid image data");
-  }
-
-  const parts = dataUrl.split(",");
-  if (parts.length !== 2) {
-    throw new Error("Image must be a base64 data URL");
-  }
-
-  const meta = parts[0];
-  const base64 = parts[1];
-  const mimeMatch = meta.match(/data:(.*?);base64/);
-  const contentType = mimeMatch?.[1] || "application/octet-stream";
-  const buffer = Buffer.from(base64, "base64");
-
-  return { buffer, contentType };
-};
+import { parseDataUrl } from "../utils/media.util.js";
 
 const registerImageUpload = async (accessToken, linkedinId) => {
   const response = await axios.post(
@@ -57,27 +39,15 @@ const uploadImageBuffer = async (uploadUrl, buffer, contentType, accessToken) =>
   });
 };
 
-export const createLinkedInPost = async ({
-  accessToken,
-  linkedinId,
-  content,
-  imageUrls = [],
-}) => {
-  const normalizedImages = Array.isArray(imageUrls)
-    ? imageUrls.slice(0, 10).filter(Boolean)
-    : imageUrls
-    ? [imageUrls]
-    : [];
+export const createLinkedInPost = async ({ accessToken, linkedinId, content, imageUrls = [] }) => {
+  const normalizedImages = Array.isArray(imageUrls) ? imageUrls.slice(0, 10).filter(Boolean) : imageUrls ? [imageUrls] : [];
 
   const assets = [];
 
   for (const imageData of normalizedImages) {
     const { buffer, contentType } = parseDataUrl(imageData);
     const uploadMetadata = await registerImageUpload(accessToken, linkedinId);
-    const uploadUrl =
-      uploadMetadata.uploadMechanism[
-        "com.linkedin.digitalmedia.uploading.MediaUploadHttpRequest"
-      ].uploadUrl;
+    const uploadUrl = uploadMetadata.uploadMechanism["com.linkedin.digitalmedia.uploading.MediaUploadHttpRequest"].uploadUrl;
 
     await uploadImageBuffer(uploadUrl, buffer, contentType, accessToken);
     assets.push(uploadMetadata.asset);
@@ -120,10 +90,7 @@ export const createLinkedInPost = async ({
     timeout: 20000,
   });
 
-  const postId =
-    response.headers["x-restli-id"] ||
-    response.data?.id ||
-    response.data?.value?.id;
+  const postId = response.headers["x-restli-id"] || response.data?.id || response.data?.value?.id;
 
   if (!postId) {
     return null;

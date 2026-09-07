@@ -18,11 +18,11 @@ const linkedInAccountSchema = new mongoose.Schema(
       required: true,
     },
 
-   name: String,
-   email: String,
-   profilePicture: String,
+    name: String,
+    email: String,
+    profilePicture: String,
 
-   connected: { 
+    connected: {
       type: Boolean,
       default: true,
     },

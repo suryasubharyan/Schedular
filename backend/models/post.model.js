@@ -4,14 +4,14 @@ const postSchema = new mongoose.Schema(
   {
     userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
 
-    accountId : {
+    accountId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "SocialAccount",
       required: true,
     },
 
     content: { type: String, required: true },
-    
+
     platform: {
       type: String,
       enum: ["linkedin", "instagram", "facebook", "x"],
@@ -39,7 +39,7 @@ const postSchema = new mongoose.Schema(
     scheduledDate: String,
     scheduledSlot: String,
     scheduledTime: Date,
-    
+
     status: {
       type: String,
       enum: ["draft", "saved", "scheduled", "posted", "failed", "processing"],
@@ -56,7 +56,7 @@ const postSchema = new mongoose.Schema(
       default: "",
     },
 
-    retryCount: { type: Number, default: 0 } // Scheduler ki retry logic ke liye
+    retryCount: { type: Number, default: 0 },
   },
   { timestamps: true }
 );

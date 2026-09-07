@@ -1,5 +1,5 @@
 import express from "express";
-import verifyJWT from "../middleware/verifyJWT.js";
+import verifyJWT from "../middleware/auth.middleware.js";
 import { getAvailability } from "../controllers/availability.controller.js";
 
 const router = express.Router();
