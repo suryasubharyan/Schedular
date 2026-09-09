@@ -4,7 +4,7 @@ import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import AppShell from "../components/layout/AppShell";
 import Logo from "../components/Logo";
-import { useSocialData } from "../context/SocialDataContext";
+import { useSocialData } from "../hooks/useSocialData";
 import { LinkedInIcon, InstagramIcon, FacebookIcon, TwitterIcon } from "../components/Icons";
 import { PLATFORM_ORDER, getPlatformMeta } from "../lib/platforms";
 import {

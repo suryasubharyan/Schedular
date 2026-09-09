@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import AppShell from "../components/layout/AppShell";
 import Card from "../components/ui/Card";
-import { useSocialData } from "../context/SocialDataContext";
+import { useSocialData } from "../hooks/useSocialData";
 import { PLATFORM_ORDER, formatPlatformLabel, getPlatformMeta } from "../lib/platforms";
 import {
   CalendarIcon,

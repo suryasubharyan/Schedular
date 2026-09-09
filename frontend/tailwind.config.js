@@ -45,20 +45,22 @@ export default {
           900: "#134e4a",
         },
         night: {
-          600: "#4d5f57",
-          700: "#384540",
-          800: "#212a26",
-          900: "#141b17",
-          950: "#0b0f0d",
+          600: "#4b6669",
+          700: "#31474a",
+          800: "#192b2e",
+          900: "#0e1e21",
+          950: "#071214",
         },
       },
       boxShadow: {
         soft: "0 20px 50px -12px rgba(15, 23, 42, 0.15)",
         "soft-dark": "0 20px 50px -12px rgba(0, 0, 0, 0.45)",
+        glow: "0 0 60px -8px rgba(45, 212, 191, 0.45)",
       },
       animation: {
         "fade-up": "fadeUp 0.6s ease both",
         shrink: "shrink linear forwards",
+        "gradient-shift": "gradientShift 6s ease-in-out infinite",
       },
       keyframes: {
         fadeUp: {
@@ -68,6 +70,10 @@ export default {
         shrink: {
           from: { width: "100%" },
           to: { width: "0%" },
+        },
+        gradientShift: {
+          "0%, 100%": { backgroundPosition: "0% 50%" },
+          "50%": { backgroundPosition: "100% 50%" },
         },
       },
     },

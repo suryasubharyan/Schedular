@@ -1,7 +1,7 @@
 import { useContext, useEffect, useRef, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { AuthContext } from "../context/AuthContext";
-import { useNotification } from "../context/NotificationContext";
+import { AuthContext } from "../context/auth-context";
+import { useNotification } from "../hooks/useNotification";
 import Logo from "../components/Logo";
 import { getErrorMessage } from "../utils/getErrorMessage";
 
