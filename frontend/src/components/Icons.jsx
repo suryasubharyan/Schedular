@@ -1,5 +1,6 @@
 import { FaFacebookF, FaInstagram, FaLinkedinIn } from "react-icons/fa";
 import { FaXTwitter } from "react-icons/fa6";
+import { LuMoon, LuSun } from "react-icons/lu";
 import {
   IoAddOutline,
   IoBarChartOutline,
@@ -11,12 +12,10 @@ import {
   IoHelpCircleOutline,
   IoLinkOutline,
   IoMenuOutline,
-  IoMoonOutline,
   IoPaperPlaneOutline,
   IoSettingsOutline,
   IoShieldCheckmarkOutline,
   IoStar,
-  IoSunnyOutline,
 } from "react-icons/io5";
 
 export const LinkedInIcon = ({ className = "h-10 w-10" }) => (
@@ -56,7 +55,7 @@ export const HelpIcon = ({ className }) => <IoHelpCircleOutline className={class
 
 export const MenuIcon = ({ className }) => <IoMenuOutline className={className} />;
 
-export const MoonIcon = ({ className }) => <IoMoonOutline className={className} />;
+export const MoonIcon = ({ className }) => <LuMoon className={className} />;
 
 export const PlatformsIcon = ({ className }) => <IoLinkOutline className={className} />;
 
@@ -74,6 +73,6 @@ export const ShieldIcon = ({ className }) => <IoShieldCheckmarkOutline className
 
 export const StarIcon = ({ className }) => <IoStar className={className} />;
 
-export const SunIcon = ({ className }) => <IoSunnyOutline className={className} />;
+export const SunIcon = ({ className }) => <LuSun className={className} />;
 
 export const XIcon = ({ className }) => <IoClose className={className} />;
