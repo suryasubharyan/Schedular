@@ -1,5 +1,5 @@
 import cron from "node-cron";
-import Post from "../models/Post.js";
+import Post from "../models/post.model.js";
 import { getSocialAccountForUser } from "./social-account.service.js";
 import { publishSocialPost } from "./social-publish.service.js";
 
@@ -36,10 +36,7 @@ const startScheduler = () => {
 
           if (!lockedPost) continue;
 
-          const account = await getSocialAccountForUser(
-            lockedPost.userId,
-            lockedPost.platform
-          );
+          const account = await getSocialAccountForUser(lockedPost.userId, lockedPost.platform);
 
           if (!account || !account.connected) {
             console.log(`No connected account for ${lockedPost.platform}`);

@@ -1,5 +1,4 @@
-
-import Availability from "../models/Availability.js";
+import Availability from "../models/availability.model.js";
 
 export const getAvailability = async (req, res) => {
   try {
@@ -8,13 +7,12 @@ export const getAvailability = async (req, res) => {
 
     const availability = await Availability.findOne({
       userId,
-      date
+      date,
     });
 
     res.json({
-      bookedSlots: availability?.bookedSlots || []
+      bookedSlots: availability?.bookedSlots || [],
     });
-
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

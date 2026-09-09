@@ -1,26 +1,11 @@
-import Post from "../models/Post.js";
-import Availability from "../models/Availability.js";
-import {
-  getPlatformConfig,
-  getSocialAccountForUser,
-  normalizePlatform,
-} from "../services/social-account.service.js";
+import Post from "../models/post.model.js";
+import Availability from "../models/availability.model.js";
+import { ValidationError, ConflictError } from "../errors/AppError.js";
+import { getPlatformConfig, getSocialAccountForUser, normalizePlatform } from "../services/social-account.service.js";
 import { publishSocialPost } from "../services/social-publish.service.js";
 
-const BAD_REQUEST_MESSAGES = [
-  "Content is required",
-  "Date & time required",
-  "Slot already booked",
-  "Time must be future",
-  "Future time required",
-];
-
 const normalizeImages = (imageUrl, imageUrls, maxImages) => {
-  const images = Array.isArray(imageUrls)
-    ? imageUrls.filter(Boolean)
-    : imageUrl
-    ? [imageUrl]
-    : [];
+  const images = Array.isArray(imageUrls) ? imageUrls.filter(Boolean) : imageUrl ? [imageUrl] : [];
 
   return images.slice(0, maxImages);
 };
@@ -42,18 +27,10 @@ const buildScheduledTime = (scheduledDate, scheduledSlot) => {
 const releaseAvailabilitySlot = async ({ userId, scheduledDate, scheduledSlot }) => {
   if (!scheduledDate || !scheduledSlot) return;
 
-  await Availability.updateOne(
-    { userId, date: scheduledDate },
-    { $pull: { bookedSlots: scheduledSlot } }
-  );
+  await Availability.updateOne({ userId, date: scheduledDate }, { $pull: { bookedSlots: scheduledSlot } });
 };
 
-const reserveAvailabilitySlot = async ({
-  userId,
-  scheduledDate,
-  scheduledSlot,
-  previousSlot,
-}) => {
+const reserveAvailabilitySlot = async ({ userId, scheduledDate, scheduledSlot, previousSlot }) => {
   try {
     if (previousSlot) {
       await releaseAvailabilitySlot({
@@ -76,11 +53,11 @@ const reserveAvailabilitySlot = async ({
     );
 
     if (!result) {
-      throw new Error("Slot already booked");
+      throw new ConflictError("Slot already booked");
     }
   } catch (error) {
     if (error?.code === 11000) {
-      throw new Error("Slot already booked");
+      throw new ConflictError("Slot already booked");
     }
 
     throw error;
@@ -91,32 +68,25 @@ const validateMediaForPlatform = ({ platform, imageUrls, videoUrl }) => {
   const config = getPlatformConfig(platform);
 
   if (imageUrls.length > config.maxImages) {
-    throw new Error(`Only ${config.maxImages} images allowed for ${config.label}`);
+    throw new ValidationError(`Only ${config.maxImages} images allowed for ${config.label}`);
   }
 
   if (videoUrl && !config.supportsVideo) {
-    throw new Error(`${config.label} does not support video publishing`);
+    throw new ValidationError(`${config.label} does not support video publishing`);
   }
 };
 
 const validatePostPayload = ({ content, status, scheduledDate, scheduledSlot }) => {
   if (!content?.trim()) {
-    throw new Error("Content is required");
+    throw new ValidationError("Content is required");
   }
 
   if (status === "scheduled" && (!scheduledDate || !scheduledSlot)) {
-    throw new Error("Date & time required");
+    throw new ValidationError("Date & time required");
   }
 };
 
-const applySharedPostFields = ({
-  post,
-  accountId,
-  platform,
-  content,
-  imageUrls,
-  videoUrl,
-}) => {
+const applySharedPostFields = ({ post, accountId, platform, content, imageUrls, videoUrl }) => {
   post.accountId = accountId;
   post.platform = platform;
   post.content = content.trim();
@@ -143,11 +113,7 @@ export const createPost = async (req, res) => {
     const userId = req.user.userId;
     const normalizedPlatform = normalizePlatform(platform);
     const platformConfig = getPlatformConfig(normalizedPlatform);
-    const normalizedImages = normalizeImages(
-      imageUrl,
-      imageUrls,
-      platformConfig.maxImages
-    );
+    const normalizedImages = normalizeImages(imageUrl, imageUrls, platformConfig.maxImages);
 
     validateMediaForPlatform({
       platform: normalizedPlatform,
@@ -168,7 +134,7 @@ export const createPost = async (req, res) => {
       scheduledTime = buildScheduledTime(scheduledDate, scheduledSlot);
 
       if (scheduledTime < new Date()) {
-        return res.status(400).json({ error: "Time must be future" });
+        throw new ValidationError("Future time required");
       }
 
       try {
@@ -178,7 +144,7 @@ export const createPost = async (req, res) => {
           scheduledSlot,
         });
       } catch (slotError) {
-        return res.status(400).json({ error: slotError.message });
+        throw new ConflictError("Slot already booked");
       }
     }
 
@@ -213,13 +179,8 @@ export const createPost = async (req, res) => {
 
     res.json({ success: true, post });
   } catch (error) {
-    const statusCode =
-      BAD_REQUEST_MESSAGES.includes(error.message) ||
-      error.message.includes("images allowed") ||
-      error.message.includes("does not support video publishing")
-        ? 400
-        : 500;
-    res.status(statusCode).json({ error: error.message });
+    const statusCode = error.statusCode || 500;
+    res.status(statusCode).json({ success: false, error: error.message });
   }
 };
 
@@ -247,13 +208,8 @@ export const updatePost = async (req, res) => {
     const nextContent = content ?? post.content;
     const nextPlatform = normalizePlatform(platform);
     const platformConfig = getPlatformConfig(nextPlatform);
-    const normalizedImages = normalizeImages(
-      imageUrl,
-      imageUrls,
-      platformConfig.maxImages
-    );
-    const nextImages =
-      Array.isArray(imageUrls) || imageUrl !== undefined ? normalizedImages : post.imageUrls;
+    const normalizedImages = normalizeImages(imageUrl, imageUrls, platformConfig.maxImages);
+    const nextImages = Array.isArray(imageUrls) || imageUrl !== undefined ? normalizedImages : post.imageUrls;
     const nextVideoUrl = typeof videoUrl === "string" ? videoUrl : post.videoUrl || "";
 
     validatePostPayload({
@@ -302,25 +258,21 @@ export const updatePost = async (req, res) => {
       const nextScheduledTime = buildScheduledTime(scheduledDate, scheduledSlot);
 
       if (nextScheduledTime < new Date()) {
-        return res.status(400).json({ error: "Future time required" });
+        throw new ValidationError("Future time required");
       }
 
-      try {
-        await reserveAvailabilitySlot({
-          userId,
-          scheduledDate,
-          scheduledSlot,
-          previousSlot:
-            post.scheduledDate && post.scheduledSlot
-              ? {
-                  scheduledDate: post.scheduledDate,
-                  scheduledSlot: post.scheduledSlot,
-                }
-              : null,
-        });
-      } catch (slotError) {
-        return res.status(400).json({ error: slotError.message });
-      }
+      await reserveAvailabilitySlot({
+        userId,
+        scheduledDate,
+        scheduledSlot,
+        previousSlot:
+          post.scheduledDate && post.scheduledSlot
+            ? {
+                scheduledDate: post.scheduledDate,
+                scheduledSlot: post.scheduledSlot,
+              }
+            : null,
+      });
 
       post.status = "scheduled";
       post.scheduledDate = scheduledDate;
@@ -353,13 +305,8 @@ export const updatePost = async (req, res) => {
 
     res.json({ success: true, post });
   } catch (err) {
-    const statusCode =
-      BAD_REQUEST_MESSAGES.includes(err.message) ||
-      err.message.includes("images allowed") ||
-      err.message.includes("does not support video publishing")
-        ? 400
-        : 500;
-    res.status(statusCode).json({ error: err.message });
+    const statusCode = err.statusCode || 500;
+    res.status(statusCode).json({ success: false, error: err.message });
   }
 };
 

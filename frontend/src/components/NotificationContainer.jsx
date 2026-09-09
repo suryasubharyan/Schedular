@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { useNotification } from "../context/NotificationContext";
+import { useNotification } from "../hooks/useNotification";
 
 const TYPE_STYLES = {
   success: "bg-green-50 border-green-200 text-green-800 dark:bg-green-950/60 dark:border-green-900 dark:text-green-300",

@@ -1,4 +1,4 @@
-import { createContext, useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   logoutApi,
   updateProfile as updateProfileApi,
@@ -7,8 +7,7 @@ import {
   register as registerApi,
   googleLogin as googleLoginApi,
 } from "../api/auth.api";
-
-export const AuthContext = createContext();
+import { AuthContext } from "./auth-context";
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);

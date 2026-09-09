@@ -9,7 +9,7 @@ import {
   updateProfile,
   logout,
 } from "../controllers/auth.controller.js";
-import { verifyJWT } from "../middleware/verifyJWT.js";
+import { verifyJWT } from "../middleware/auth.middleware.js";
 
 const router = express.Router();
 

@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import AppShell from "../components/layout/AppShell";
 import Card from "../components/ui/Card";
-import { useSocialData } from "../context/SocialDataContext";
+import { useSocialData } from "../hooks/useSocialData";
 import { formatPlatformLabel, getPlatformMeta } from "../lib/platforms";
 
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];

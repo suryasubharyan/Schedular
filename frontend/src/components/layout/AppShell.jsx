@@ -1,20 +1,19 @@
 import { useState } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import useAuth from "../../hooks/useAuth";
-import { useTheme } from "../../context/ThemeContext";
+import { useTheme } from "../../hooks/useTheme";
 import UserAvatar from "../UserAvatar";
+import ThemeToggle from "../ThemeToggle";
 import {
   CalendarIcon,
   ChartIcon,
   ChevronDownIcon,
   HelpIcon,
   MenuIcon,
-  MoonIcon,
   PlatformsIcon,
   PlusIcon,
   PostsIcon,
   SettingsIcon,
-  SunIcon,
   XIcon,
 } from "../Icons";
 import Logo from "../Logo";
@@ -136,15 +135,7 @@ export default function AppShell({ children }) {
           <div className="flex-1" />
 
           <div className="flex items-center gap-2 sm:gap-3">
-            <button
-              type="button"
-              onClick={toggleTheme}
-              title="Toggle theme"
-              className="grid h-10 w-10 place-items-center rounded-xl border border-slate-200 text-slate-600 transition-all duration-200
-                hover:-translate-y-0.5 hover:bg-slate-100 dark:border-night-800 dark:text-slate-300 dark:hover:bg-night-800"
-            >
-              {theme === "dark" ? <SunIcon className="h-5 w-5" /> : <MoonIcon className="h-5 w-5" />}
-            </button>
+            <ThemeToggle theme={theme} toggleTheme={toggleTheme} />
 
             <div className="relative">
               <button

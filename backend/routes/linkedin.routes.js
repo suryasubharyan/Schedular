@@ -1,17 +1,10 @@
 import express from "express";
-import {
-  connectLinkedIn,
-  linkedinCallback,
-  getLinkedInAccount,
-  disconnectLinkedIn,
-} from "../controllers/linkedin.controller.js";
-import verifyJWT from "../middleware/verifyJWT.js";
+import { linkedinCallback } from "../controllers/linkedin.controller.js";
 
 const router = express.Router();
 
-router.get("/connect", verifyJWT, connectLinkedIn);
+// Authorized Redirect URL in the LinkedIn Developer Console.
+// Do not rename this route without updating it there first.
 router.get("/callback", linkedinCallback);
-router.get("/me", verifyJWT, getLinkedInAccount);
-router.post("/disconnect", verifyJWT, disconnectLinkedIn);
 
 export default router;

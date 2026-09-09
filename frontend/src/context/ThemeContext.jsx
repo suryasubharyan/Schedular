@@ -1,6 +1,6 @@
-import { createContext, useContext, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import ThemeContext from "./theme-context";
 
-const ThemeContext = createContext();
 const STORAGE_KEY = "schedular-theme";
 
 const getInitialTheme = () => {
@@ -9,9 +9,7 @@ const getInitialTheme = () => {
   const stored = window.localStorage.getItem(STORAGE_KEY);
   if (stored === "light" || stored === "dark") return stored;
 
-  return window.matchMedia?.("(prefers-color-scheme: dark)").matches
-    ? "dark"
-    : "light";
+  return window.matchMedia?.("(prefers-color-scheme: dark)").matches ? "dark" : "light";
 };
 
 export const ThemeProvider = ({ children }) => {
@@ -23,17 +21,11 @@ export const ThemeProvider = ({ children }) => {
     window.localStorage.setItem(STORAGE_KEY, theme);
   }, [theme]);
 
-  const toggleTheme = () => {
+  const toggleTheme = useCallback(() => {
     setTheme((current) => (current === "dark" ? "light" : "dark"));
-  };
+  }, []);
 
-  return (
-    <ThemeContext.Provider value={{ theme, setTheme, toggleTheme }}>
-      {children}
-    </ThemeContext.Provider>
-  );
+  const value = useMemo(() => ({ theme, setTheme, toggleTheme }), [theme, toggleTheme]);
+
+  return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
 };
-
-export const useTheme = () => useContext(ThemeContext);
-
-export default ThemeContext;

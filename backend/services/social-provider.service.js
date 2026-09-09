@@ -1,10 +1,8 @@
 import axios from "axios";
 import { SignJWT, jwtVerify } from "jose";
-import config from "../config/env.js";
+import config from "../config/env.config.js";
 
-const JWT_SECRET = new TextEncoder().encode(
-  process.env.JWT_SECRET || "your-super-secret-key-change-in-env"
-);
+const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET || "your-super-secret-key-change-in-env");
 
 const OAUTH_STATE_TTL_SECONDS = 60 * 10;
 
@@ -45,7 +43,7 @@ export const getPlatformRedirectUri = (platform = "linkedin") => {
     return `${baseUrl}/api/linkedin/callback`;
   }
 
-  return `${baseUrl}/api/social/callback/${platform}`;
+  return `${baseUrl}/api/social/accounts/${platform}/callback`;
 };
 
 export const hasOAuthCredentials = (platform = "linkedin") => {
@@ -55,9 +53,7 @@ export const hasOAuthCredentials = (platform = "linkedin") => {
     return false;
   }
 
-  return Boolean(
-    process.env[provider.clientIdEnv] && process.env[provider.clientSecretEnv]
-  );
+  return Boolean(process.env[provider.clientIdEnv] && process.env[provider.clientSecretEnv]);
 };
 
 export const createPlatformOAuthState = async ({ platform, userId }) =>
@@ -121,10 +117,7 @@ const fetchLinkedInProfile = async (accessToken) => {
 
   return {
     platformUserId: profile.sub,
-    username:
-      profile.email?.split("@")?.[0] ||
-      profile.name?.replace(/\s+/g, "").toLowerCase() ||
-      "linkedin-user",
+    username: profile.email?.split("@")?.[0] || profile.name?.replace(/\s+/g, "").toLowerCase() || "linkedin-user",
     name: profile.name,
     email: profile.email,
     profilePicture: profile.picture,
@@ -150,9 +143,7 @@ export const resolvePlatformOAuthAccount = async ({ platform, code }) => {
     refreshToken: tokenPayload.refresh_token || "",
     tokenType: tokenPayload.token_type || "Bearer",
     scopes: getSocialProviderConfig(platform).scopes,
-    tokenExpiresAt: expiresInSeconds
-      ? new Date(Date.now() + expiresInSeconds * 1000)
-      : null,
+    tokenExpiresAt: expiresInSeconds ? new Date(Date.now() + expiresInSeconds * 1000) : null,
     profile,
     metadata: {
       source: `${platform}-oauth`,
