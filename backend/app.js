@@ -9,6 +9,7 @@ import linkedinRoutes from "./routes/linkedin.routes.js";
 import socialRoutes from "./routes/social.routes.js";
 import postRoutes from "./routes/post.routes.js";
 import availabilityRoutes from "./routes/availability.routes.js";
+import aiRoutes from "./routes/ai.routes.js";
 const app = express();
 
 app.use(
@@ -46,6 +47,7 @@ app.use("/api/linkedin", linkedinRoutes);
 app.use("/api/social", socialRoutes);
 app.use("/api/posts", postRoutes);
 app.use("/api/availability", availabilityRoutes);
+app.use("/api/ai", aiRoutes);
 
 app.use((req, res) => {
   res.status(404).json({
