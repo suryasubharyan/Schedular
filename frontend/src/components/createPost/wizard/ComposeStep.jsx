@@ -1,5 +1,7 @@
-import { IoImageOutline, IoInformationCircleOutline, IoVideocamOutline } from "react-icons/io5";
+import { useState } from "react";
+import { IoImageOutline, IoInformationCircleOutline, IoSparklesOutline, IoVideocamOutline } from "react-icons/io5";
 import profileIcon from "../../../assets/profile-icon.svg";
+import { useAIGenerate } from "../../../hooks/useAIGenerate";
 import { WIZARD_MAX_IMAGES, WIZARD_WIDTH } from "./constants";
 
 export default function ComposeStep({
@@ -7,12 +9,30 @@ export default function ComposeStep({
   setContent,
   profile,
   imageUrls,
+  setImageUrls,
   videoUrl,
   setVideoUrl,
   handleImageSelect,
   handleVideoSelect,
   handleRemoveImage,
+  platform = "linkedin",
 }) {
+  const [topic, setTopic] = useState("");
+  const { generateCaption, generatingCaption, generateImage, generatingImage } = useAIGenerate();
+
+  const handleGenerateCaption = async () => {
+    const result = await generateCaption({ platform, topic: topic.trim() || content });
+    if (!result) return;
+    const hashtagLine = result.hashtags?.length ? `\n\n${result.hashtags.map((h) => `#${h}`).join(" ")}` : "";
+    setContent(`${result.caption}${hashtagLine}`);
+  };
+
+  const handleGenerateImage = async () => {
+    const result = await generateImage({ prompt: topic.trim() || content });
+    if (!result) return;
+    setImageUrls([...(imageUrls || []), result.imageUrl].slice(0, WIZARD_MAX_IMAGES));
+  };
+
   return (
     <div className={`mx-auto ${WIZARD_WIDTH} pb-28`}>
       <div className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-night-700 dark:bg-night-800">
@@ -25,6 +45,44 @@ export default function ComposeStep({
           <div>
             <div className="font-semibold text-slate-900 dark:text-white">{profile?.name}</div>
             <div className="text-xs font-bold text-brand-600 dark:text-brand-400">Write your post</div>
+          </div>
+        </div>
+
+        {/* AI assist — describe the post, let AI draft the caption and/or an image */}
+        <div className="mb-3 rounded-xl border border-dashed border-violet-300 bg-violet-50/60 p-3 dark:border-violet-500/30 dark:bg-violet-500/5">
+          <div className="mb-2 flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-violet-700 dark:text-violet-300">
+            <IoSparklesOutline className="h-3.5 w-3.5" />
+            AI assist
+          </div>
+          <input
+            type="text"
+            value={topic}
+            onChange={(e) => setTopic(e.target.value)}
+            placeholder="What's this post about? e.g. launching our new pricing plan"
+            className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900
+              outline-none placeholder:text-slate-400 focus:border-violet-400 dark:border-night-600
+              dark:bg-night-900 dark:text-white"
+          />
+          <div className="mt-2 flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={handleGenerateCaption}
+              disabled={generatingCaption}
+              className="rounded-lg bg-violet-600 px-3 py-1.5 text-xs font-semibold text-white transition-colors
+                hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {generatingCaption ? "Generating caption…" : "Generate caption"}
+            </button>
+            <button
+              type="button"
+              onClick={handleGenerateImage}
+              disabled={generatingImage || (imageUrls?.length || 0) >= WIZARD_MAX_IMAGES}
+              className="rounded-lg border border-violet-300 bg-white px-3 py-1.5 text-xs font-semibold text-violet-700
+                transition-colors hover:bg-violet-50 disabled:cursor-not-allowed disabled:opacity-60
+                dark:border-violet-500/40 dark:bg-night-900 dark:text-violet-300"
+            >
+              {generatingImage ? "Generating image…" : "Generate image"}
+            </button>
           </div>
         </div>
 

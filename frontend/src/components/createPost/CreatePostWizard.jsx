@@ -78,11 +78,13 @@ export default function CreatePostWizard({
           setContent={setContent}
           profile={profile}
           imageUrls={imageUrls}
+          setImageUrls={setImageUrls}
           videoUrl={videoUrl}
           setVideoUrl={setVideoUrl}
           handleImageSelect={handleImageSelect}
           handleVideoSelect={handleVideoSelect}
           handleRemoveImage={handleRemoveImage}
+          platform={selectedPlatforms[0] || "linkedin"}
         />
       )}
 
