@@ -1,5 +1,9 @@
 import { textAi, TEXT_MODEL, imageAi, IMAGE_MODEL } from "../config/ai.config.js";
 import { AppError } from "../errors/AppError.js";
+import { cacheGet, cacheSet } from "../utils/cache.js";
+
+const CAPTION_CACHE_TTL_MS = 10 * 60 * 1000;
+
 
 const CAPTION_INSTRUCTIONS = {
     linkedin: 
@@ -62,6 +66,11 @@ export const generateCaption = async ({ platform, topic}) => {
         throw new AppError("Tell me what the post is about first", 400);
     }
 
+    const cacheKey = `caption:${platform}:${topic.trim().toLowerCase()}`;
+    const cached = cacheGet(cacheKey);
+    if (cached) {
+        return cached;
+    }
     let response;
     try {
         response = await textAi.chat.completions.create({
